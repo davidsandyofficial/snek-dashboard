@@ -12,8 +12,17 @@
   const wide = () => innerWidth >= 900;
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const load = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && v.v === 1 ? v : null; } catch (e) { return null; } };
-  const blank = () => ({ v: 1, order: DEFAULT.slice(), pinned: [], hidden: [], size: {} });
+  // v2: the "Built by @DavidSandy" follow card is pinned to the very top by default; older saved layouts get it pinned once.
+  const TOP = "follow";
+  const load = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem(KEY)); if (!v) return null;
+      if (v.v === 1) { v.v = 2; v.pinned = [TOP].concat((v.pinned || []).filter((x) => x !== TOP)); v.hidden = (v.hidden || []).filter((x) => x !== TOP); v.order = [TOP].concat((v.order || []).filter((x) => x !== TOP)); try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} }
+      return v.v === 2 ? v : null;
+    } catch (e) { return null; }
+  };
+  const blank = () => ({ v: 2, order: [TOP].concat(DEFAULT.filter((x) => x !== TOP)), pinned: [TOP], hidden: [], size: {}, height: {} });
+  const sizeName = (n) => SIZE_NAMES[n] || n + "/12";
   let L = load() || blank();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(L)); } catch (e) {} };
   const toast = (m) => (window.SNEKAPP && window.SNEKAPP.toast ? window.SNEKAPP.toast(m) : null);
@@ -22,14 +31,14 @@
 
   // ---------- presets ----------
   const PRESETS = {
-    trader: { name: "Trader", icon: "📈", desc: "Chart, live prices, trades and whale feed first", order: ["chart", "price", "venues", "trades", "wfeed", "liquidity", "volume", "alerts", "stats"], pinned: ["chart"], hidden: ["calc", "links", "follow"], size: { price: 6, venues: 6 } },
+    trader: { name: "Trader", icon: "📈", desc: "Chart, live prices, trades and whale feed first", order: ["chart", "price", "venues", "trades", "wfeed", "liquidity", "volume", "alerts", "stats"], pinned: ["chart"], hidden: ["calc", "links"], size: { price: 6, venues: 6 } },
     holder: { name: "Holder", icon: "💎", desc: "Price, your portfolio, alerts and holder stats", order: ["price", "portfolio", "alerts", "stats", "holders", "chart", "calc", "wtop"], pinned: ["price"], hidden: ["trades", "volume", "liquidity", "venues"], size: {} },
     watcher: { name: "Wallet watcher", icon: "🔎", desc: "Wallet tracker, your watchlist and whale moves", order: ["wsearch", "watch", "wfeed", "wtop", "price", "holders", "chart"], pinned: ["wsearch"], hidden: ["calc", "venues", "volume", "portfolio"], size: { wsearch: 8, watch: 4 } },
   };
   function applyPreset(k) {
     const P = PRESETS[k]; if (!P) return; snap();
     const known = new Set(DEFAULT), first = P.order.filter((x) => known.has(x));
-    L = { v: 1, order: first.concat(DEFAULT.filter((x) => !first.includes(x))), pinned: P.pinned.slice(), hidden: P.hidden.filter((x) => known.has(x)), size: Object.assign({}, P.size), preset: k };
+    L = { v: 2, order: [TOP].concat(first.filter((x) => x !== TOP), DEFAULT.filter((x) => !first.includes(x) && x !== TOP)), pinned: [TOP].concat(P.pinned.filter((x) => x !== TOP)), hidden: P.hidden.filter((x) => known.has(x) && x !== TOP), size: Object.assign({}, P.size), height: {}, preset: k };
     save(); apply(true); undoToast(P.icon + " " + P.name + " layout applied"); haptic(10);
     window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" });
   }
@@ -40,7 +49,7 @@
     DEFAULT.forEach((id, i) => { if (!order.includes(id)) order.splice(Math.min(i, order.length), 0, id); });
     L.pinned = (L.pinned || []).filter((id) => known.has(id));
     L.hidden = (L.hidden || []).filter((id) => known.has(id));
-    L.size = L.size || {};
+    L.size = L.size || {}; L.height = L.height || {};
     L.order = L.pinned.concat(order.filter((id) => !L.pinned.includes(id)));
   }
   // FLIP animation so widgets glide to their new spot
@@ -51,6 +60,7 @@
     all().forEach((w) => {
       const id = w.dataset.w, sz = L.size[id] || DEFSIZE[id];
       w.style.setProperty("--span", sz);
+      const hh = L.height[id]; w.classList.toggle("wsized", !!hh); if (hh) w.style.setProperty("--h", hh + "px"); else w.style.removeProperty("--h");
       w.classList.toggle("pinned", L.pinned.includes(id));
       w.classList.toggle("whid", L.hidden.includes(id));
       const c = w.querySelector(":scope > .wctl"); if (c) paintCtl(w, c);
@@ -59,7 +69,7 @@
     if (first) all().forEach((w) => { const a = first.get(w); if (!a || w.classList.contains("whid")) return; const b = w.getBoundingClientRect(); const dx = a.left - b.left, dy = a.top - b.top; if (!dx && !dy) return; if (Math.abs(dy) > innerHeight * 1.5) return; w.animate([{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" }); });
     renderTray();
   }
-  const isDefault = () => JSON.stringify(L.order) === JSON.stringify(DEFAULT) && !L.pinned.length && !L.hidden.length && !Object.keys(L.size).length;
+  const isDefault = () => { const B = blank(); return JSON.stringify(L.order) === JSON.stringify(B.order) && JSON.stringify(L.pinned) === JSON.stringify(B.pinned) && !L.hidden.length && !Object.keys(L.size).length && !Object.keys(L.height || {}).length; };
 
   // ---------- undo ----------
   const undoStack = [];
@@ -93,7 +103,7 @@
     L.order = L.order.filter((x) => x !== id); L.order.splice(was ? L.pinned.length : L.pinned.length - 1, 0, id);
     save(); apply(true); haptic(8); undoToast((was ? "Unpinned " : "📌 Pinned ") + title(id) + (was ? "" : " to the top"));
   }
-  function cycleSize(id) { snap(); const cur = L.size[id] || DEFSIZE[id], nx = SIZES[(SIZES.indexOf(cur) + 1) % SIZES.length] || 12; if (nx === DEFSIZE[id]) delete L.size[id]; else L.size[id] = nx; save(); apply(true); undoToast(title(id) + " width: " + SIZE_NAMES[nx]); }
+  function cycleSize(id) { snap(); const cur = L.size[id] || DEFSIZE[id], nx = SIZES[(SIZES.indexOf(cur) + 1) % SIZES.length] || 12; if (nx === DEFSIZE[id]) delete L.size[id]; else L.size[id] = nx; save(); apply(true); undoToast(title(id) + " width: " + sizeName(nx)); setTimeout(() => window.dispatchEvent(new Event("resize")), 300); }
   function hide(id) { snap(); L.hidden.push(id); save(); apply(true); haptic(8); undoToast("Hid " + title(id)); }
   function show(id) { snap(); L.hidden = L.hidden.filter((x) => x !== id); save(); apply(true); const w = byId(id); if (w) w.scrollIntoView({ block: "center", behavior: reduced() ? "auto" : "smooth" }); haptic(6); }
 
@@ -112,7 +122,7 @@
     const vis = visibleOrder(), i = vis.indexOf(id), pin = L.pinned.includes(id), sz = L.size[id] || DEFSIZE[id];
     const canUp = i > 0 && L.pinned.includes(vis[i - 1]) === pin, canDown = i < vis.length - 1 && L.pinned.includes(vis[i + 1]) === pin;
     const item = (a, label, dis) => '<button type="button" role="menuitem" data-m="' + a + '"' + (dis ? " disabled" : "") + ">" + label + "</button>";
-    menu.innerHTML = '<div class="wmh">' + esc(w.dataset.title) + "</div>" + item("pin", pin ? "📌 Unpin" : "📌 Pin to top") + item("up", "↑ Move up", !canUp) + item("down", "↓ Move down", !canDown) + (wide() ? item("size", "↔ Width: " + SIZE_NAMES[sz] + " → " + SIZE_NAMES[SIZES[(SIZES.indexOf(sz) + 1) % SIZES.length]]) : "") + item("hide", "🙈 Hide") + '<div class="wmsep"></div>' + item("edit", "✎ Customize layout…");
+    menu.innerHTML = '<div class="wmh">' + esc(w.dataset.title) + "</div>" + item("pin", pin ? "📌 Unpin" : "📌 Pin to top") + item("up", "↑ Move up", !canUp) + item("down", "↓ Move down", !canDown) + (wide() ? item("size", "↔ Width: " + sizeName(sz) + " → " + sizeName(SIZES[(SIZES.indexOf(sz) + 1) % SIZES.length])) + (L.size[id] || L.height[id] ? item("rsize", "↺ Reset size") : "") : "") + item("hide", "🙈 Hide") + '<div class="wmsep"></div>' + item("edit", "✎ Customize layout…");
     document.body.appendChild(menu);
     const r = btn.getBoundingClientRect(), mw = menu.offsetWidth, mh = menu.offsetHeight;
     let top = r.bottom + 6, left = Math.min(innerWidth - mw - 8, Math.max(8, r.right - mw));
@@ -126,7 +136,7 @@
   document.addEventListener("click", (e) => {
     const k = e.target.closest(".wkebab"); if (k) { e.preventDefault(); if (menu && menuFor === k.closest(".w").dataset.w) closeMenu(); else openMenu(k); return; }
     const m = e.target.closest(".wmenu [data-m]");
-    if (m) { const id = menuFor, a = m.dataset.m; closeMenu(); if (a === "pin") togglePin(id); else if (a === "up") move(id, -1); else if (a === "down") move(id, 1); else if (a === "size") cycleSize(id); else if (a === "hide") hide(id); else if (a === "edit") setEditing(true); return; }
+    if (m) { const id = menuFor, a = m.dataset.m; closeMenu(); if (a === "pin") togglePin(id); else if (a === "up") move(id, -1); else if (a === "down") move(id, 1); else if (a === "size") cycleSize(id); else if (a === "rsize") resetSize(id); else if (a === "hide") hide(id); else if (a === "edit") setEditing(true); return; }
     if (menu && !e.target.closest(".wmenu")) closeMenu();
   });
   let menuY = 0; addEventListener("scroll", () => { if (menu && Math.abs(scrollY - menuY) > 40) closeMenu(); }, { passive: true });
@@ -236,6 +246,80 @@
   const fab = document.getElementById("layoutFab");
   if (fab) { let lastY = scrollY, tk = false; addEventListener("scroll", () => { if (tk) return; tk = true; requestAnimationFrame(() => { const y = scrollY; fab.classList.toggle("tuck", y > lastY + 4 && y > 200); if (y < lastY - 4 || y < 200) fab.classList.remove("tuck"); lastY = y; tk = false; }); }, { passive: true }); }
 
+
+  // ---------- resize with the mouse (wide screens): corner, right edge and bottom edge handles ----------
+  // Width snaps to the 12-column grid (3 = ¼ … 12 = full); height moves in 10 px steps (160–1600 px) or "auto".
+  const MINSPAN = 3, MINH = 160, MAXH = 1600, HSTEP = 10;
+  function resetSize(id) { if (!L.size[id] && !L.height[id]) return; snap(); delete L.size[id]; delete L.height[id]; save(); apply(true); undoToast(title(id) + " size reset"); redraw(); }
+  const redraw = () => { [60, 320].forEach((t) => setTimeout(() => window.dispatchEvent(new Event("resize")), t)); };
+  const rz = document.createElement("div"); rz.className = "rzlayer"; rz.hidden = true;
+  rz.innerHTML = '<span class="rzh rz-e" data-rz="e" title="Drag to change width · double-click to reset"></span><span class="rzh rz-s" data-rz="s" title="Drag to change height · double-click to reset"></span><span class="rzh rz-se" data-rz="se" title="Drag to resize · double-click to reset"><i></i></span>';
+  document.body.appendChild(rz);
+  let rzFor = null, rzing = null;
+  const rzOk = () => wide() && !editing && !document.body.classList.contains("dragging");
+  function placeRz(w) {
+    if (!w || !rzOk() || w.classList.contains("whid")) { if (!rzing) { rz.hidden = true; rzFor = null; } return; }
+    const r = w.getBoundingClientRect(); rzFor = w; rz.hidden = false;
+    rz.style.cssText = "left:" + (r.left + scrollX) + "px;top:" + (r.top + scrollY) + "px;width:" + r.width + "px;height:" + r.height + "px";
+  }
+  let rzRaf = 0;
+  document.addEventListener("pointermove", (e) => {
+    if (rzing || rzRaf) return;
+    rzRaf = requestAnimationFrame(() => {
+      rzRaf = 0;
+      if (e.target.closest && e.target.closest(".rzh")) return;
+      const w = e.target.closest && e.target.closest("#wgrid > .w");
+      if (e.pointerType === "mouse" || w) placeRz(w);
+    });
+  }, { passive: true });
+  // touch on a wide screen (tablet): tapping a card shows a bigger corner handle for it
+  document.addEventListener("pointerdown", (e) => { if (e.pointerType !== "mouse" && !e.target.closest(".rzh")) { const w = e.target.closest("#wgrid > .w"); rz.classList.add("touch"); placeRz(w); } }, { passive: true, capture: true });
+  addEventListener("resize", () => { if (rzFor && !rzing) placeRz(rzFor); }, { passive: true });
+  function colMetrics() {
+    const cs = getComputedStyle(grid), gap = parseFloat(cs.columnGap) || 16, gw = grid.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+    return { gap, col: (gw - 11 * gap) / 12 };
+  }
+  rz.addEventListener("pointerdown", (e) => {
+    const h = e.target.closest(".rzh"); if (!h || !rzFor) return;
+    e.preventDefault(); e.stopPropagation();
+    const w = rzFor, id = w.dataset.w, r = w.getBoundingClientRect(), m = colMetrics(), mode = h.dataset.rz;
+    const span0 = L.size[id] || DEFSIZE[id];
+    rzing = { w, id, mode, x0: e.clientX, y0: e.clientY, W0: r.width, H0: r.height, span: span0, h: L.height[id] || null, span0, h0: L.height[id] || null, m, left: r.left + scrollX, top: r.top + scrollY };
+    try { h.setPointerCapture(e.pointerId); } catch (x) {}
+    document.body.classList.add("resizing", "rzm-" + mode); closeMenu(); hideCoach();
+    const g = document.createElement("div"); g.className = "rzghost"; g.innerHTML = '<span class="rzlabel"></span>'; document.body.appendChild(g); rzing.g = g;
+    paintGhost(); haptic(10);
+  });
+  function paintGhost() {
+    const z = rzing, m = z.m, wpx = z.span * m.col + (z.span - 1) * m.gap, hpx = z.h || z.H0;
+    z.g.style.cssText = "left:" + z.left + "px;top:" + z.top + "px;width:" + Math.min(wpx, grid.clientWidth) + "px;height:" + hpx + "px";
+    z.g.querySelector(".rzlabel").textContent = z.span + " col" + (z.span > 1 ? "s" : "") + (SIZE_NAMES[z.span] ? " (" + (SIZE_NAMES[z.span] === "Full" ? "full" : SIZE_NAMES[z.span]) + ")" : "") + " × " + (z.h ? Math.round(z.h) + "px" : "auto (" + Math.round(z.H0) + "px)");
+  }
+  rz.addEventListener("pointermove", (e) => {
+    const z = rzing; if (!z) return;
+    const m = z.m;
+    if (z.mode !== "s") { const W = z.W0 + (e.clientX - z.x0); z.span = Math.max(MINSPAN, Math.min(12, Math.round((W + m.gap) / (m.col + m.gap)))); }
+    if (z.mode !== "e") { const H = z.H0 + (e.clientY - z.y0); z.h = Math.max(MINH, Math.min(MAXH, Math.round(H / HSTEP) * HSTEP)); }
+    paintGhost();
+  });
+  function endRz(cancel) {
+    const z = rzing; if (!z) return; rzing = null;
+    z.g.remove(); document.body.classList.remove("resizing", "rzm-e", "rzm-s", "rzm-se");
+    if (cancel) return;
+    const changedW = z.span !== z.span0, changedH = z.mode !== "e" && z.h !== z.h0 && Math.abs(z.h - z.H0) >= HSTEP;
+    if (!changedW && !changedH) return;
+    snap();
+    if (changedW) { if (z.span === DEFSIZE[z.id]) delete L.size[z.id]; else L.size[z.id] = z.span; }
+    if (changedH) L.height[z.id] = z.h;
+    save(); apply(true); haptic(8); redraw();
+    undoToast(title(z.id) + ": " + z.span + " col" + (z.span > 1 ? "s" : "") + " × " + (L.height[z.id] ? L.height[z.id] + "px" : "auto"));
+    setTimeout(() => placeRz(byId(z.id)), 300);
+  }
+  rz.addEventListener("pointerup", () => endRz(false));
+  rz.addEventListener("pointercancel", () => endRz(true));
+  rz.addEventListener("dblclick", (e) => { const h = e.target.closest(".rzh"); if (h && rzFor) { resetSize(rzFor.dataset.w); setTimeout(() => placeRz(rzFor), 320); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && rzing) endRz(true); });
+
   // ---------- first-visit coach mark ----------
   let coach = null;
   function showCoach() {
@@ -274,5 +358,5 @@
     if ((e.ctrlKey || e.metaKey) && e.key === "z" && undoStack.length && !e.target.closest("input,textarea")) { e.preventDefault(); undo(); }
   });
   apply(); sortMode(false);
-  window.SNEKLAYOUT = { goto, setEditing, applyPreset, undo, get: () => JSON.parse(JSON.stringify(L)), isEditing: () => editing };
+  window.SNEKLAYOUT = { goto, setEditing, applyPreset, undo, resetSize, get: () => JSON.parse(JSON.stringify(L)), isEditing: () => editing };
 })();

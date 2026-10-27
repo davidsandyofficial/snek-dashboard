@@ -415,3 +415,42 @@ body.dragging .wgrid>.w.wnodrop{opacity:.4}
 body.dragging .wghost{animation:ghostPulse 1s ease-in-out infinite}
 @keyframes ghostPulse{50%{background:color-mix(in srgb,var(--snek) 20%,transparent)!important}}
 @media(prefers-reduced-motion:reduce){body.dragging .wgrid>.w,body.dragging .wghost{animation:none!important}}
+
+/* ===== resize with the mouse (wide screens) ===== */
+.rzlayer{position:absolute;z-index:25;pointer-events:none}
+.rzlayer[hidden]{display:none}
+.rzh{position:absolute;pointer-events:auto;touch-action:none}
+.rz-e{top:24px;bottom:24px;right:-5px;width:10px;cursor:ew-resize}
+.rz-s{left:24px;right:24px;bottom:-5px;height:10px;cursor:ns-resize}
+.rz-e::after,.rz-s::after{content:"";position:absolute;border-radius:3px;background:var(--snek);opacity:0;transition:opacity .15s}
+.rz-e::after{top:50%;left:3px;width:4px;height:44px;transform:translateY(-50%)}
+.rz-s::after{left:50%;top:3px;height:4px;width:44px;transform:translateX(-50%)}
+.rz-e:hover::after,.rz-s:hover::after{opacity:.85}
+.rz-se{right:-4px;bottom:-4px;width:22px;height:22px;cursor:nwse-resize;display:grid;place-items:center}
+.rz-se i{width:12px;height:12px;border-right:2.5px solid var(--muted);border-bottom:2.5px solid var(--muted);border-bottom-right-radius:4px;opacity:.75;transition:border-color .15s,opacity .15s}
+.rz-se:hover i{border-color:var(--snek);opacity:1}
+.rzlayer.touch .rz-se{width:44px;height:44px;right:-8px;bottom:-8px}
+.rzlayer.touch .rz-se i{width:18px;height:18px;border-width:3px;border-color:var(--snek)}
+body.resizing,body.resizing *{user-select:none!important;-webkit-user-select:none!important}
+body.rzm-e,body.rzm-e *{cursor:ew-resize!important}body.rzm-s,body.rzm-s *{cursor:ns-resize!important}body.rzm-se,body.rzm-se *{cursor:nwse-resize!important}
+.rzghost{position:absolute;z-index:26;pointer-events:none;border:2px dashed var(--snek);border-radius:16px;background:color-mix(in srgb,var(--snek) 8%,transparent);box-shadow:0 0 0 4px var(--glow),0 0 28px color-mix(in srgb,var(--snek) 30%,transparent);transition:width .08s,height .08s}
+.rzlabel{position:absolute;right:10px;bottom:10px;padding:5px 10px;border-radius:999px;background:var(--snek);color:var(--onSnek);font-weight:800;font-size:13px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+body.resizing .wgrid>.w{transition:none}
+@media(min-width:900px){
+  .wgrid>.w.wsized{height:var(--h);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+  .wgrid>.w.wsized[data-w="chart"]{display:flex;flex-direction:column;overflow:hidden}
+  .wgrid>.w.wsized[data-w="chart"]>*{flex:none}
+  .wgrid>.w.wsized[data-w="chart"]>.tvchart{flex:1 1 0;min-height:200px;height:auto!important}
+}
+@media(max-width:899px){.rzlayer,.rzghost{display:none!important}}
+@media(prefers-reduced-motion:reduce){.rzghost{transition:none}}
+
+/* follow card: pinned on top; "Not now" makes it a slim bar */
+.follow .fexpand{display:none}
+.follow.compact{align-items:center;padding-top:10px;padding-bottom:10px}
+.follow.compact img{width:36px;height:auto;margin-top:0}
+.follow.compact .grow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.follow.compact p,.follow.compact #followClose{display:none}
+.follow.compact .fexpand{display:inline-flex;align-items:center}
+.follow.compact .row{margin:0}.follow.compact .btn{min-height:36px;font-size:13px}
+body.editing .wgrid>.w.wsized{height:auto}

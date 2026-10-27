@@ -28,6 +28,8 @@ Tap **ƒx Indicators** above the chart. Overlays: SMA ×2, EMA ×2 (periods conf
 
 ## Customizable layout
 
+- **Resize with the mouse** (screens at least 900 px wide): drag a card's bottom-right corner, right edge or bottom edge. Width snaps to the 12-column grid (3 = ¼ up to 12 = full) and height moves in 10 px steps (160–1600 px). A dashed outline with a size label such as "8 cols (⅔) × 420px" follows the mouse, and you get an Undo toast afterwards. Double-click a handle, or use ⋯ → Reset size, to reset one card. Presets and Reset clear all custom sizes. On touch tablets a bigger corner handle appears on the card you tapped, and the ⋯ menu still has the width option.
+- **The "Built by @DavidSandy" card is pinned at the top** by default and in every preset. Saved layouts from before (v1) get it pinned once. "Not now" shrinks it to a slim bar instead of hiding it.
 - **Grab the ⠿ grip** in any card header (it isn't shown on pinned cards) to drag straight away with mouse or touch. With a mouse you can also grab the card title. While you drag, every valid drop spot gets a dashed outline, the spot you're over glows, and pinned cards are marked "can't drop here".
 - **Press and hold any card** (about 0.4 s on touch, 0.3 s with a mouse) on a non-interactive spot such as its title, then drag it to a new place. No edit mode needed. Buttons, inputs, links, tables, lists and the chart canvas are excluded, so scrolling and chart panning work as before. Pinned cards stay put. You get a short vibration where supported, a lifted card, a "Drop here" placeholder and an Undo toast.
 

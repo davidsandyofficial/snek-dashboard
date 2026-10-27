@@ -534,8 +534,12 @@
   // ---------- follow card (personal, dismissible) ----------
   function setupFollow() {
     const c = $("followCard"); if (!c) return;
-    if (Date.now() > store.get("snek-follow-until", 0)) c.hidden = false;
-    $("followClose").addEventListener("click", () => { c.hidden = true; store.set("snek-follow-until", Date.now() + 30 * 86400000); });
+    // Always visible (pinned at the top by default). "Not now" shrinks it to a slim bar for 30 days instead of hiding it.
+    c.hidden = false;
+    const compact = (on) => { c.classList.toggle("compact", on); window.dispatchEvent(new Event("resize")); };
+    compact(Date.now() < store.get("snek-follow-until", 0));
+    $("followClose").addEventListener("click", () => { compact(true); store.set("snek-follow-until", Date.now() + 30 * 86400000); });
+    const o = $("followOpen"); if (o) o.addEventListener("click", () => { compact(false); store.set("snek-follow-until", 0); });
   }
 
   function init() {
