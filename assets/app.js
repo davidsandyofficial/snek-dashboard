@@ -171,6 +171,7 @@
       handleScale: { pinch: true, mouseWheel: true, axisPressedMouseMove: true }, handleScroll: { horzTouchDrag: true, vertTouchDrag: false, mouseWheel: true, pressedMouseMove: true }
     });
     buildSeries();
+    chart.timeScale().subscribeVisibleLogicalRangeChange((r) => { if (r && r.from < 40) loadOlder(); });
     chart.subscribeCrosshairMove((p) => {
       if (!p || !p.time) { showOHLC(state.chart.bars[state.chart.bars.length - 1]); return; }
       const b = state.chart.bars.find((x) => x.time === p.time); showOHLC(b);
@@ -226,14 +227,15 @@
     paintIndicators();
     if (fit && bars.length) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 120), to: bars.length + 4 });
     showOHLC(bars[bars.length - 1]);
-    $("chartSrc").textContent = state.chart.live ? "· live" : bars.length ? "· saved snapshot" : "";
+    const hh = state.chart.hist, first = bars.length ? bars[0].time : null;
+    $("chartSrc").textContent = (state.chart.live ? "· live" : bars.length ? "· saved history" : "") + (first ? " · from " + fmtTime(new Date(first * 1000), { month: "short", day: "numeric", year: "numeric" }) + (hh && hh.ci > 0 ? " · scroll left for more" : "") : "");
   }
   function showOHLC(b) {
     const el = $("ohlc"); if (!b) { el.innerHTML = '<span class="na">No candle data yet</span>'; return; }
     const f = (v) => !ok(v) ? "" : state.chart.cur === "usd" ? "$" + Number(v.toPrecision(4)) : Number(v.toPrecision(4)) + " ₳";
     const ch = ((b.close - b.open) / b.open) * 100;
     const vu = state.chart.cur === "usd" ? "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(b.volume) : Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(b.volume) + " ₳";
-    el.innerHTML = '<span class="muted">' + fmtTime(new Date(b.time * 1000), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</span><span>O <b>" + f(b.open) + "</b></span><span>H <b>" + f(b.high) + "</b></span><span>L <b>" + f(b.low) + "</b></span><span>C <b>" + f(b.close) + "</b></span>" + pct(ch) + "<span>Vol <b>" + vu + "</b></span>" +
+    el.innerHTML = '<span class="muted">' + fmtTime(new Date(b.time * 1000), { year: new Date(b.time * 1000).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</span>" + (b.src === 1 ? '<span class="vtag" title="Older candle from Gate.io SNEK/USDT (CEX)">CEX · Gate</span>' : "") + "<span>O <b>" + f(b.open) + "</b></span><span>H <b>" + f(b.high) + "</b></span><span>L <b>" + f(b.low) + "</b></span><span>C <b>" + f(b.close) + "</b></span>" + pct(ch) + "<span>Vol <b>" + vu + "</b></span>" +
       Object.values(indData).map((d) => { const v = d.maps.main && d.maps.main.get(b.time); if (v == null) return ""; const id = d.cfg.id, osc = id === "rsi" || id === "stochrsi"; const val = osc ? v.toFixed(1) : id === "volma" ? Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v) : id === "macd" ? Number(v.toPrecision(3)).toString() : f(v); const sig = d.maps.signal && d.maps.signal.get(b.time); return '<span style="color:' + d.cfg.color + '">' + window.SNEKIND.label(d.cfg, true) + " " + val + (sig != null && osc ? " / " + sig.toFixed(1) : "") + "</span>"; }).join("");
   }
   const toBars = (list) => list.map((r) => ({ time: r[0], open: +r[1], high: +r[2], low: +r[3], close: +r[4], volume: +r[5] })).sort((a, b) => a.time - b.time).filter((b, i, a) => !i || b.time !== a[i - 1].time);
@@ -241,21 +243,53 @@
   let loadSeq = 0, loadTimer = null;
   const candleCache = {};
   function loadCandles() { clearTimeout(loadTimer); loadTimer = setTimeout(loadCandlesNow, 250); }
+  // Long history (assets/history, built daily by a GitHub Action) is merged under the live candles,
+  // and older 500-candle chunks load when you scroll left.
+  const H = () => window.SNEKHIST;
+  function mergeOlder(older, bars) { const first = bars.length ? bars[0].time : Infinity; return older.filter((b) => b.time < first).concat(bars); }
+  async function withHistory(bars, iv, cur, seq) {
+    if (!H()) return bars;
+    try {
+      let r = await H().latest(iv, cur); if (seq !== loadSeq) return bars;
+      let out = mergeOlder(r.bars, bars), ci = r.ci;
+      while (out.length < 400 && ci > 0) { const o = await H().older(iv, cur, ci); ci = o.ci; out = mergeOlder(o.bars, out); }
+      state.chart.hist = { iv, cur, ci, first: r.ix.first, count: r.ix.count };
+      return out;
+    } catch (e) { state.chart.hist = null; return bars; }
+  }
+  let olderBusy = false;
+  async function loadOlder() {
+    const h = state.chart.hist; if (olderBusy || !h || h.ci <= 0 || h.iv !== state.chart.iv || h.cur !== state.chart.cur || !sMain) return;
+    olderBusy = true; const seq = loadSeq;
+    try {
+      const o = await H().older(h.iv, h.cur, h.ci); if (seq !== loadSeq) return;
+      h.ci = o.ci; const before = state.chart.bars.length; const merged = mergeOlder(o.bars, state.chart.bars); const added = merged.length - before;
+      if (added > 0) {
+        const r = chart.timeScale().getVisibleLogicalRange();
+        state.chart.bars = merged; const key = state.chart.iv + "|" + state.chart.cur; if (candleCache[key]) candleCache[key].bars = merged.slice();
+        paint(false); if (r) chart.timeScale().setVisibleLogicalRange({ from: r.from + added, to: r.to + added });
+        toast("Loaded older candles back to " + fmtTime(new Date(merged[0].time * 1000), { month: "short", day: "numeric", year: "numeric" }));
+      }
+    } catch (e) {} finally { olderBusy = false; }
+  }
   function loadCandlesNow() {
-    const seq = ++loadSeq; const key = state.chart.iv + "|" + state.chart.cur; const c = candleCache[key];
-    if (c && Date.now() - c.t < 60000) { state.chart.bars = c.bars.slice(); state.chart.live = true; paint(true); return Promise.resolve(); }
-    return gt(ohlcvURL(300)).then((r) => {
+    const seq = ++loadSeq; const key = state.chart.iv + "|" + state.chart.cur; const c = candleCache[key]; const iv = state.chart.iv, cur = state.chart.cur;
+    if (c && Date.now() - c.t < 60000) { state.chart.bars = c.bars.slice(); state.chart.hist = c.hist ? Object.assign({}, c.hist) : null; state.chart.live = true; paint(true); return Promise.resolve(); }
+    return gt(ohlcvURL(300)).then(async (r) => {
       if (seq !== loadSeq) return;
-      const bars = toBars(r.data.attributes.ohlcv_list); if (!bars.length) throw new Error("empty");
-      candleCache[key] = { t: Date.now(), bars: bars.slice() };
+      const live = toBars(r.data.attributes.ohlcv_list); if (!live.length) throw new Error("empty");
+      const bars = await withHistory(live, iv, cur, seq); if (seq !== loadSeq) return;
+      candleCache[key] = { t: Date.now(), bars: bars.slice(), hist: state.chart.hist ? Object.assign({}, state.chart.hist) : null };
       state.chart.bars = bars; state.chart.live = true; state.live.candles = true; paint(true); sparkFromCandles();
-    }).catch(() => {
+    }).catch(async () => {
       if (seq !== loadSeq) return;
       state.live.candles = false; state.chart.live = false;
       const o = SNAP && SNAP.ohlcv;
-      state.chart.bars = o ? toBars(state.chart.cur === "usd" ? o.usd : o.ada) : [];
+      let bars = await withHistory([], iv, cur, seq); if (seq !== loadSeq) return;
+      if (!bars.length) bars = o ? toBars(cur === "usd" ? o.usd : o.ada) : [];
+      state.chart.bars = bars;
       paint(true);
-      if (o && state.chart.iv !== "1H") toast("Live candles busy, showing saved 1H snapshot and retrying");
+      toast(bars.length ? "Live candles busy, showing saved history and retrying" : "Candles unavailable right now, retrying");
       setTimeout(() => { if (seq === loadSeq && !state.chart.live) loadCandles(); }, 31000);
     });
   }
@@ -549,7 +583,7 @@
   }
 
   function init() {
-    window.SNEKAPP = { state, toast, tradeRows: () => tradeRows("all") };
+    window.SNEKAPP = { state, toast, tradeRows: () => tradeRows("all"), chartScrollStart: () => { if (chart) chart.timeScale().setVisibleLogicalRange({ from: 0, to: 120 }); } };
     loadSnapshot(); seedSpark(); setupChrome();
     if (FX) FX.init({ onRefresh: () => Promise.all([refresh(true), refreshHolders()]).then(() => { loadCandles(); toast("Updated", "ok"); }) }); setupPortfolio(); setupAlerts(); setupChartControls(); initChart();
     renderMarket(); renderHolders(); renderPools(); renderVenues(); renderTrades(); renderStatus();
