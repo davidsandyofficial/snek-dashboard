@@ -139,6 +139,7 @@
       setTimeout(done, 9000);
     },
     chartHash,
+    frameImage: frame,
   };
   window.SNEKSHARE = API;
 

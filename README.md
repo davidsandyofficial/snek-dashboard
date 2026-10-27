@@ -90,15 +90,23 @@ The hero and wallet search have animated gradient borders. The header and bars u
 
 ## Portfolio history (Wallets tab)
 
-A draggable "Portfolio history" widget shows the wallet you looked up, or one you track, using real data only:
-- **Transactions** come from Yoroi's public backend. They are paged backwards in segments between chain anchors (1, 7, 30, 90 and 365 days back, taken from the 30-min snapshot) and finally from the address's first transaction. One load reads up to 40 pages (2,000 txs), and "Load further back" continues from there. The covered window only ever includes complete segments.
-- **Balances** (SNEK and ADA) are rebuilt from today's on-chain balance by undoing each transaction's change. They cover this address only. Other tokens and NFTs are not included.
-- **Prices** are daily closes in UTC:
-  - SNEK from `assets/history/1D` (on-chain DEX, Gate.io before ~180 days, back to Dec 27, 2023).
-  - ADA/USD from Kraken's public OHLC (last ~720 days). Older days use the same-day SNEK USD ÷ SNEK ADA ratio.
+A draggable "Portfolio history" widget charts the wallet you looked up, any tracked wallet, or **Σ All tracked** (every tracked wallet combined over the dates all of them cover). Real data only:
+- **Whole wallet (stake key) or one address.** In whole-wallet mode, addresses are found from the stake key's own transactions and then from every transaction input/output with the same stake credential, since Koios blocks browser requests. An address that never moved funds alongside the others can be missed. Pointer and enterprise addresses and unwithdrawn rewards are not included.
+- **Transactions** come from Yoroi's public backend. They are paged backwards in segments between chain anchors (1, 7, 30, 90 and 365 days back, from the 30-min snapshot) and then to the first transaction, at up to 50 addresses per request. One load reads up to 40 pages. Very busy wallets keep paging, up to 120 pages, until a week is covered. "Load further back" continues from there. The covered window only ever includes complete segments, and it is always shown.
+- **Caching:** transactions, balances and prices are stored in IndexedDB. Reopening only reads what's new since the last load (incremental top-up from the newest anchor), with a progress bar while it works.
+- **Balances** of ADA, SNEK and up to 8 other fungible tokens (registry/DexHunter-listed) are rebuilt from today's on-chain balance by undoing each transaction. Failed script transactions are skipped.
+- **Prices** are daily UTC closes:
+  - SNEK: `assets/history/1D` (on-chain DEX; Gate.io before ~180 days; from Dec 27, 2023).
+  - ADA/USD: Kraken (~720 days), then Coinbase Exchange candles (from Mar 2021), then the implied rate from SNEK USD ÷ SNEK ADA.
+  - Other tokens: GeckoTerminal top-pool daily OHLCV (~180 days). A token whose prices cover less than 90% of the days it was held starts switched off and is marked "sparse".
+  - Tokens without price history are listed as excluded. So are tokens whose lookup failed, shown separately with a retry hint.
+  - Currencies come from Frankfurter/ECB (the last fixing within 7 days covers weekends).
   - Today uses live prices.
-- **Chart and stats:** a USD/ADA toggle, 7D/30D/90D/1Y/All ranges, a SNEK balance line, and tooltips. Also: change in value over the range (includes transfers), price-driven P/L (held balance × daily price moves) and the ATH portfolio value.
-- **No interpolation:** days without prices stay empty and are listed as gaps, and the covered date range is always shown.
+- **Stats:** value, change (incl. transfers), price-driven P/L in value and time-weighted % (transfers excluded), net transfers, max drawdown with dates, ATH/ATL, a P/L table for 7D/30D/90D/1Y/All, and a daily change table.
+- **Chart:** area, stacked by asset, line, or daily bars (open = previous close, wicks = holdings × the day's high/low). Value or % view, any Settings currency or ADA, log scale, 7-day smoothing (raw line kept faint), drawdown pane, and markers for buys/sells (SNEK↔ADA in one tx), transfers in/out and ATH/ATL. Optional benchmarks: hold SNEK, hold ADA. Assets can be toggled on and off, and a custom date range can be set. Choices are remembered per wallet.
+- **Inspect:** a floating tooltip on desktop. On phones, tap or drag across the chart to fill the inspect panel below it, while the page still scrolls vertically.
+- **Export:** CSV of the daily rows (balances, values, prices and sources), and a share image/link through the share sheet.
+- **No interpolation:** a day missing a price for an enabled, held asset has no total. Gaps are listed with reasons.
 
 ## Settings (⚙ in the header, the "," key, or ⋯ → Settings)
 - Look: Dark, Light, OLED black or SNEK green theme (◐ cycles them), accent color presets plus a custom picker, compact/comfy density, text size S–XL, optional background art from the official SNEK media kit, effects/animations on/off, soft sounds on/off (off by default), "Vibrate on price moves" (off by default; drag and drop haptics stay on).

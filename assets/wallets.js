@@ -466,7 +466,7 @@
 
   // ---------- watchlist ----------
   const watch = () => store.get(WATCH_KEY, []);
-  const saveWatch = (l) => store.set(WATCH_KEY, l);
+  const saveWatch = (l) => { store.set(WATCH_KEY, l); window.dispatchEvent(new CustomEvent("snek:watch")); };
   function track(w) {
     const l = watch(), id = idOf(w);
     if (l.some((x) => x.id === id)) { saveWatch(l.filter((x) => x.id !== id)); toast("Stopped tracking " + displayName(w)); }
