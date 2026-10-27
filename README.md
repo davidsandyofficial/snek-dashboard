@@ -14,6 +14,13 @@ Live, mobile-first dashboard for SNEK, the Cardano memecoin. Static site, hosted
 - Tools: portfolio tracker (saved in your browser, live value and 24h P/L, optional cost basis), read-only balance lookup from a public addr1/stake1 address via Koios, value calculator, browser price alerts, copy policy ID, share button.
 - Installable PWA (shell cached; live data never served from cache), light/dark theme, skeleton loaders, 44 px tap targets, bottom tab bar on phones.
 
+## Wallet tracker (Wallets tab)
+Inspired by community requests for "beautiful wallet tracking tools". Paste an `addr1…` address, a `stake1…` key or a `$handle`:
+- SNEK and ADA balance, staking status, ADA Handles held, and "exchange-like" signals (big undelegated ADA, ≥20 handles, ≥100 txs/24 h, legacy Byron address). Signals are hints, not proof of ownership.
+- ★ Track up to 12 wallets (saved only in your browser). They are re-checked every 5 minutes while the page is open, with a toast when a balance moves by ≥1M SNEK.
+- Top 10 holders, labeled with ADA Handles and a small community label list (`assets/labels.json`, every entry needs a public source; suggest one via GitHub issues).
+- Data: Yoroi's public wallet backend (balances, stake state) and Handle.me (handles) in the browser, keyless. Top-holder enrichment (24 h activity, handles, staking) is computed every 30 min by the GitHub Action with Koios, because Koios's keyless tier blocks browser CORS.
+
 ## How data updates
 | Data | Source | How often |
 |---|---|---|
@@ -36,7 +43,7 @@ Run the updater manually: Actions → "Update data snapshot" → Run workflow, o
 - [TradingView Lightweight Charts™](https://github.com/tradingview/lightweight-charts) v5.2.1, Apache-2.0, © TradingView, Inc. Vendored at `assets/vendor/`, license in `assets/vendor/LICENSE-lightweight-charts.txt`. Chart attribution logo kept on.
 - [d3-hierarchy](https://github.com/d3/d3-hierarchy) v3.1.2, ISC, © Mike Bostock. Used for the top-holders treemap. License in `assets/vendor/LICENSE-d3-hierarchy.txt`.
 - [Koios](https://www.koios.rest/) community Cardano API ([koios-artifacts](https://github.com/cardano-community/koios-artifacts) spec) for read-only address lookups.
-- Data: CoinGecko, GeckoTerminal, DexHunter, DexScreener, Kraken, Coinbase Exchange, Gate, Bitget, Koios, Cardanoscan (public, keyless endpoints; no affiliation).
+- Data: CoinGecko, GeckoTerminal, DexHunter, Yoroi public backend, Handle.me, DexScreener, Kraken, Coinbase Exchange, Gate, Bitget, Koios, Cardanoscan (public, keyless endpoints; no affiliation).
 - SNEK logo, mascot and token artwork: official media kit from [snek.com/brand](https://www.snek.com/brand) (`https://www.snek.com/downloads/media-kit.zip`), © SNEK / their owners. Used for personal, non-commercial purposes per the [SNEK Intellectual Property Policy](https://www.snek.com/intellectual-property-policy), which allows this "provided that it does not suggest endorsement or affiliation with SNEK" and does not harm the brand. Details in `assets/brand/SOURCE.md`. Brand colors from the kit: mint `#18f2b2`, off-white `#f4f3ef`, black `#151515`, character palette `#88eaff`, `#5491d9`, `#c684f0`, `#fc4c61`.
 
 Safety: no wallet connection, no seed phrases, nothing is ever signed.

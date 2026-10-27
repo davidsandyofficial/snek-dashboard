@@ -293,15 +293,12 @@
     $("pfAmt").addEventListener("input", save); $("pfCost").addEventListener("input", save);
     const go = () => {
       const a = $("lookupAddr").value.trim(); const out = $("lookupOut");
-      if (!/^(addr1|stake1)[0-9a-z]{20,}$/.test(a)) { out.innerHTML = '<span class="sell">Enter a valid addr1… or stake1… address.</span>'; return; }
+      if (!/^(addr1[0-9a-z]{20,}|stake1[0-9a-z]{20,}|Ae2[1-9A-HJ-NP-Za-km-z]{40,})$/.test(a)) { out.innerHTML = '<span class="sell">Enter a valid addr1… or stake1… address.</span>'; return; }
       out.textContent = "Looking up…";
-      const stake = a.startsWith("stake1");
-      getJSON(KOIOS + (stake ? "/account_assets" : "/address_assets"), { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(stake ? { _stake_addresses: [a] } : { _addresses: [a] }) }, 20000)
-        .then((rows) => {
-          const hits = (rows || []).filter((r) => r.policy_id === POLICY && r.asset_name === "534e454b");
-          const q = hits.reduce((s, r) => s + Number(r.quantity) / Math.pow(10, r.decimals || 0), 0);
-          $("pfAmt").value = q; save(); out.innerHTML = "Found <b>" + num(q) + " SNEK</b> at this " + (stake ? "stake account" : "address") + ". Portfolio updated.";
-        }).catch((e) => { out.innerHTML = '<span class="sell">Lookup failed (' + esc(e.message) + "). Koios may be busy, try again.</span>"; });
+      if (a.startsWith("stake1") || !window.SNEKWALLETS) { out.innerHTML = '<span class="sell">Paste an addr1… address (a stake key alone can’t be summed with the free, keyless APIs).</span>'; return; }
+      window.SNEKWALLETS.balanceOf(a)
+        .then((b) => { $("pfAmt").value = b.snek; save(); out.innerHTML = "Found <b>" + num(b.snek) + " SNEK</b> at this address. Portfolio updated."; })
+        .catch((e) => { out.innerHTML = '<span class="sell">Lookup failed (' + esc(e.message) + "). The free API may be busy, try again.</span>"; });
     };
     $("lookupBtn").addEventListener("click", go); $("lookupAddr").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
   }
@@ -522,6 +519,7 @@
   }
 
   function init() {
+    window.SNEKAPP = { state, toast };
     loadSnapshot(); seedSpark(); setupChrome();
     if (FX) FX.init({ onRefresh: () => Promise.all([refresh(true), refreshHolders()]).then(() => { loadCandles(); toast("Updated", "ok"); }) }); setupPortfolio(); setupAlerts(); setupChartControls(); initChart();
     renderMarket(); renderHolders(); renderPools(); renderVenues(); renderTrades(); renderStatus();

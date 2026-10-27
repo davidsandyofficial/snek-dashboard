@@ -1,0 +1,6 @@
+{
+  "about": "Community wallet labels for the fan-made SNEK dashboard. Only add a label with a public, verifiable source. Suggest one via GitHub issues.",
+  "labels": [
+    { "address": "addr1z84q0denmyep98ph3tmzwsmw0j7zau9ljmsqx6a4rvaau66j2c79gy9l76sdg0xwhd7r0c0kna0tycz4y5s6mlenh8pq777e2a", "label": "Minswap V2 pool contract", "kind": "dex", "source": "https://github.com/minswap/minswap-dex-v2" }
+  ]
+}

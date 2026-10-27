@@ -116,6 +116,7 @@ def short(a):
 
 def holders():
     raw = get("https://cardanoscan.io/token/" + TOKEN, as_json=False)
+    hrefs = list(dict.fromkeys(re.findall(r'href="/address/([A-Za-z0-9]+)"', raw)))
     t = re.sub(r"<script.*?</script>", "", raw, flags=re.S)
     t = re.sub(r"<[^>]+>", " | ", t)
     t = html.unescape(re.sub(r"(\s*\|\s*)+", " | ", t))
@@ -127,7 +128,9 @@ def holders():
     top = []
     seg = t[t.find("| Rank | Holder |"):]
     for m in re.finditer(r"\| (\d{1,2}) \| ([A-Za-z0-9]+) \| ([A-Za-z0-9]+) \| ([\d,]{5,}) \| ([\d.]+)%(?= \|)", seg):
-        top.append([short(m.group(2) + m.group(3)), int(num(m.group(4))), float(m.group(5))])
+        sh = short(m.group(2) + m.group(3)); pre, suf = sh.split("…") if "…" in sh else (sh, "")
+        full = next((a for a in hrefs if a.startswith(pre) and a.endswith(suf)), None)
+        top.append([sh, int(num(m.group(4))), float(m.group(5)), full])
         if len(top) == 10:
             break
     top100 = re.search(r"Top 100 hold ([\d.]+)%", t)
@@ -136,6 +139,77 @@ def holders():
            "top100": float(top100.group(1)) if top100 else None, "transactions": int(num(txs.group(1))) if txs else None}
     if len(tiers) < 5 or len(top) < 10:
         raise RuntimeError(f"partial holder parse tiers={len(tiers)} top={len(top)}")
+    return out
+
+
+KOIOS = "https://api.koios.rest/api/v1"
+HANDLE_POLICY = "f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
+
+
+def kpost(path, body, timeout=60):
+    req = urllib.request.Request(KOIOS + path, data=json.dumps(body).encode(), headers={"User-Agent": UA, "Content-Type": "application/json", "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
+def handle_name(hexname):
+    h = hexname[8:] if hexname.startswith("000de140") else hexname
+    try:
+        return bytes.fromhex(h).decode("utf-8")
+    except Exception:
+        return None
+
+
+def wallets(top):
+    """Enrich the top holders with public on-chain facts from Koios (keyless): stake key, ADA, staking status, ADA Handles, 24h activity."""
+    tip = json.loads(urllib.request.urlopen(urllib.request.Request(KOIOS + "/tip", headers={"User-Agent": UA}), timeout=30).read())
+    after = tip[0]["block_height"] - 4320  # ~24 h of blocks
+    labels = {l["address"]: l for l in json.load(open(os.path.join(ROOT, "assets", "labels.json")))["labels"]}
+    out = []
+    for rank, row in enumerate(top, 1):
+        addr = row[3] if len(row) > 3 else None
+        w = {"rank": rank, "address": addr, "short": row[0], "snek": row[1], "pct": row[2]}
+        if not addr:
+            out.append(w); continue
+        if addr in labels:
+            w["label"] = labels[addr]["label"]; w["labelKind"] = labels[addr].get("kind"); w["labelSource"] = labels[addr].get("source")
+            if w["labelKind"] in ("dex", "contract"):
+                w["script"] = True; out.append(w); continue  # huge contract UTxO sets time out on the free API
+        try:
+            ai = kpost("/address_info", {"_addresses": [addr]})
+            ai = ai[0] if ai else {}
+            w["script"] = bool(ai.get("script_address")); w["byron"] = addr.startswith(("Ae2", "Ddz"))
+            stake = ai.get("stake_address"); w["stake"] = stake
+            if stake:
+                ac = kpost("/account_info", {"_stake_addresses": [stake]})[0]
+                w["ada"] = int(ac["total_balance"]) / 1e6; w["stakeStatus"] = ac["status"]; w["pool"] = ac.get("delegated_pool")
+                if w["pool"]:
+                    try:
+                        pi = kpost("/pool_info", {"_pool_bech32_ids": [w["pool"]]})[0]
+                        w["poolTicker"] = (pi.get("meta_json") or {}).get("ticker")
+                    except Exception:
+                        pass
+                try:  # Handle.me public API (keyless): handle count + default handle
+                    hd = get("https://api.handle.me/holders/" + stake, tries=2)
+                    names = hd.get("handles") or []
+                    w["handles"] = int(hd.get("total_handles") or len(names)); w["handleSample"] = names[:8]
+                    if hd.get("manually_set") and hd.get("default_handle"):
+                        w["defaultHandle"] = hd["default_handle"]
+                except Exception:
+                    hs = kpost(f"/account_assets?policy_id=eq.{HANDLE_POLICY}&select=asset_name", {"_stake_addresses": [stake]}, timeout=90)
+                    names = sorted(n for n in (handle_name(x["asset_name"]) for x in hs) if n)
+                    w["handles"] = len(names); w["handleSample"] = names[:8]
+                tx = kpost("/account_txs", {"_stake_address": stake, "_after_block_height": after})
+                w["tx24"] = len(tx); w["tx24Capped"] = len(tx) >= 1000
+            else:
+                w["ada"] = int(ai.get("balance") or 0) / 1e6; w["handles"] = 0
+                if not w["script"]:
+                    tx = kpost("/address_txs", {"_addresses": [addr], "_after_block_height": after})
+                    w["tx24"] = len(tx); w["tx24Capped"] = len(tx) >= 1000
+        except Exception as e:  # noqa
+            w["error"] = type(e).__name__
+        out.append(w)
+        time.sleep(1)
     return out
 
 
@@ -154,6 +228,15 @@ def main():
                 snap["ohlcv"] = ohlcv(pool_addr or "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c2ffadbb87144e875749122e0bbb9f535eeaa7f5660c6c4a91bcc4121e477f08d")
             else:
                 snap[name] = fn()
+                if name == "holders":
+                    try:
+                        snap["holders"]["wallets"] = wallets(snap["holders"]["top"])
+                        status["wallets"] = "ok"
+                    except Exception as e:  # noqa
+                        old = (prev.get("holders") or {}).get("wallets")
+                        if old:
+                            snap["holders"]["wallets"] = old
+                        status["wallets"] = f"kept previous ({type(e).__name__}: {e})"
             status[name] = "ok"
         except Exception as e:
             status[name] = f"kept previous ({type(e).__name__}: {e})"

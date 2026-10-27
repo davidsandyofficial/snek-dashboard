@@ -135,3 +135,25 @@ tr.whale.slide-in td{animation:whaleGlow 2.6s ease}@keyframes whaleGlow{0%{backg
 .vtag{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11.5px;white-space:nowrap;border:1px solid var(--line)}
 .vtag.dex{color:var(--snek)}.vtag.cex{color:var(--cyan)}
 #liveVenues td:nth-child(2),#liveVenues td:nth-child(3){white-space:nowrap}#liveVenues td{vertical-align:top}
+/* wallet tracker */
+.wsearch{display:flex;gap:8px;margin:10px 0 6px}.wsearch input{min-width:0;flex:1;min-height:46px;font-size:16px}
+.wchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}.wchips button{min-height:36px}
+.wprofile:empty{display:none}.wprofile{margin-top:8px;border-top:1px solid var(--line);padding-top:12px}
+.whead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
+.wname{font-size:20px;font-weight:700;word-break:break-word}
+.kpis.wk{grid-template-columns:repeat(2,1fr)}@media(min-width:900px){.kpis.wk{grid-template-columns:repeat(5,1fr)}}
+.hchips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.hchip{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--card2);border:1px solid var(--line)}
+.signals{list-style:none;padding:0;margin:10px 0;display:grid;gap:4px;font-size:13px;color:var(--muted)}.signals li.on{color:var(--text)}.signals li.on::first-letter{color:var(--snek)}
+.vtag.ex{color:#ffb547;border-color:#ffb54766}
+.linkbtn{background:none;border:0;padding:0;color:var(--snek);font:inherit;cursor:pointer;text-align:left}
+.wlist{display:grid;gap:8px}.witem{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--card2);position:relative}
+.witem .wspark{display:none}@media(min-width:500px){.witem{grid-template-columns:1fr 90px auto auto}.witem .wspark{display:block}}
+.witem .wr{text-align:right}.witem .wv{font-weight:700}.icon-btn.sm{width:36px;height:36px;min-width:36px;font-size:14px}
+.up{color:var(--snek)}.down{color:var(--red)}.warn{color:#ffb547}
+#wTop td,#wTop th{white-space:nowrap}#wTop .wrow{cursor:pointer}#wTop .wrow:hover{background:var(--card2)}
+/* follow card */
+.follow{display:flex;gap:14px;align-items:flex-start}.follow img{flex:none;margin-top:4px}.follow .ftitle{font-weight:700;font-size:16px}.follow p{margin:6px 0}
+.btn.xfollow{display:inline-flex;align-items:center;min-height:44px}
+@media(max-width:899px){.tabs{grid-template-columns:repeat(7,1fr)}.tabs a{font-size:10.5px}}
+.follow[hidden],.card[hidden]{display:none!important}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:44px;padding:0 16px}a.btn.primary{color:var(--onSnek)}
