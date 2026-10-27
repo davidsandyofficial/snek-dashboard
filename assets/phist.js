@@ -506,7 +506,7 @@
   function draw() {
     if (!ctx || !$("phKpis")) return;
     const cur = curNow();
-    if (ctx.cur !== cur) { compute(ctx.all, -1); return; }
+    if (ctx.cur !== cur) { compute2(ctx.all, -1, !ctx.pricing); return; }
     const on = ctx.assets.filter(isOn);
     const rowsAll = buildRows(ctx.B, ctx.P, on, cur), rows = cut(rowsAll), S = stats(rows, on);
     ctx.rows = rows; ctx.rowsAll = rowsAll; ctx.on = on; ctx.S = S;
