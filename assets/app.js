@@ -29,10 +29,12 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const na = () => '<span class="na">unavailable</span>';
   const ok = (v) => v !== null && v !== undefined && v !== "" && isFinite(v);
-  const usd = (v) => !ok(v) ? na() : Math.abs(v) >= 1 ? "$" + v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "$" + Number(Number(v).toPrecision(4));
-  const big = (v) => !ok(v) ? na() : "$" + Math.round(v).toLocaleString("en-US");
-  const compact = (v) => !ok(v) ? na() : "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(v);
-  const num = (v, d) => !ok(v) ? na() : Number(v).toLocaleString("en-US", { maximumFractionDigits: d || 0 });
+  // money/number formats follow the Settings panel (currency from free FX rates, number format, locale) via SNEKFMT
+  const F = () => window.SNEKFMT;
+  const usd = (v) => !ok(v) ? na() : F() ? F().money(v) : Math.abs(v) >= 1 ? "$" + v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "$" + Number(Number(v).toPrecision(4));
+  const big = (v) => !ok(v) ? na() : F() ? F().money(v, "big") : "$" + Math.round(v).toLocaleString("en-US");
+  const compact = (v) => !ok(v) ? na() : F() ? F().money(v, "compact") : "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(v);
+  const num = (v, d) => !ok(v) ? na() : Number(v).toLocaleString(F() ? F().locale() : "en-US", { maximumFractionDigits: d || 0 });
   const pct = (v) => !ok(v) ? na() : '<span class="chg ' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "+" : "") + Number(v).toFixed(2) + "%</span>";
   const fmtTime = (d, o) => new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: TZ }, o)).format(d);
   const stamp = (d) => fmtTime(d, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) + " CT";
@@ -117,7 +119,9 @@
     const m = state.market; if (!m) return;
     applyLive(m);
     const pa = priceAda();
-    const ptxt = ok(m.price) ? "$" + Number(Number(m.price).toPrecision(5)) : null;
+    const pc = ok(m.price) && F() && F().cur() !== "USD" ? F().conv(m.price) : null;
+    const ptxt = !ok(m.price) ? null : pc ? (pc.suffix ? Number(pc.v.toPrecision(5)).toLocaleString(F().locale(), { maximumSignificantDigits: 5 }) + " " + pc.sym : pc.sym + Number(pc.v.toPrecision(5)).toLocaleString(F().locale(), { maximumSignificantDigits: 5 })) : "$" + Number(Number(m.price).toPrecision(5));
+    const pl = $("pairLbl"); if (pl) pl.textContent = "SNEK / " + (pc ? F().cur() : "USD");
     if (ptxt && ptxt !== renderMarket._last) { renderMarket._last = ptxt; STATS.priceShown.push(Date.now()); if (STATS.priceShown.length > 500) STATS.priceShown.shift(); }
     if (FX && ptxt) FX.price($("price"), ptxt, m.price); else $("price").innerHTML = usd(m.price);
     unskel($("priceAda")); $("priceAda").innerHTML = ok(pa) ? pa.toPrecision(5) + " ADA" : na();
@@ -125,8 +129,8 @@
     $("ch24").innerHTML = pct(m.ch24);
     unskel($("tPrice")); if (FX && ptxt) FX.price($("tPrice"), ptxt, m.price); else $("tPrice").innerHTML = usd(m.price); $("tChg").innerHTML = pct(m.ch24);
     pushSpark(m.price);
-    document.title = (ok(m.price) ? "$" + Number(m.price.toPrecision(4)) + " · " : "") + "SNEK Dashboard (Fan-made)";
-    const k = [["Market cap", compact(m.mcap)], ["24h volume", compact(m.vol)], ["FDV", compact(m.fdv)], ["7d change", pct(m.ch7)], ["30d change", pct(m.ch30)], ["ADA price", usd(m.adaUsd)], ["CoinGecko rank", ok(m.rank) ? "#" + m.rank : na()]];
+    document.title = (ok(m.price) ? "$" + Number(m.price.toPrecision(4)) + " · " : "") + ((window.SNEKSET && SNEKSET.get().name) ? SNEKSET.get().name + " · " : "") + "SNEK Dashboard (Fan-made)";
+    const k = [["Market cap", compact(m.mcap)], ["24h volume", compact(m.vol)], ["FDV", compact(m.fdv)], ["7d change", pct(m.ch7)], ["30d change", pct(m.ch30)], ["ADA price", F() && F().cur() === "ADA" ? (ok(m.adaUsd) ? "$" + Number(m.adaUsd.toPrecision(4)) : na()) : usd(m.adaUsd)], ["CoinGecko rank", ok(m.rank) ? "#" + m.rank : na()]];
     const kEl = $("kpis");
     if (!kEl.dataset.built) { kEl.innerHTML = k.map((x, i) => '<div class="kpi"><div class="l">' + x[0] + '</div><div class="v" id="kpi' + i + '"></div></div>').join(""); kEl.dataset.built = "1"; }
     const nums = [m.mcap, m.vol, m.fdv];
@@ -551,15 +555,18 @@
 
   // ---------------- UI chrome ----------------
   function setupChrome() {
+    // ◐ cycles dark → light → OLED → SNEK green; the Settings panel owns the value
     $("themeBtn").addEventListener("click", () => {
-      const t = document.documentElement.dataset.theme === "light" ? "dark" : "light"; document.documentElement.dataset.theme = t;
-      try { localStorage.setItem("snek-theme", t); } catch (e) {}
-      document.querySelector('meta[name="theme-color"]').content = t === "light" ? "#f4f3ef" : "#05080a";
-      retheme(); renderHolders();
+      const T = ["dark", "light", "oled", "green"], c = document.documentElement.dataset.theme || "dark", t = T[(T.indexOf(c) + 1) % T.length];
+      if (window.SNEKSET) SNEKSET.set("theme", t); else { document.documentElement.dataset.theme = t; retheme(); renderHolders(); }
+      toast("Theme: " + { dark: "Dark", light: "Light", oled: "OLED black", green: "SNEK green" }[t]);
     });
+    window.addEventListener("snek:theme", () => { retheme(); renderHolders(); });
+    window.addEventListener("snek:fmt", () => { renderMarket(); renderHolders(); renderPools(); renderVenues(); renderTrades(); renderCalc(); });
     $("shareBtn").addEventListener("click", () => {
-      const p = state.market && state.market.price; const data = { title: "SNEK Dashboard (Fan-made)", text: "SNEK live" + (ok(p) ? " at $" + Number(p.toPrecision(4)) : "") + " — fan-made, unofficial dashboard: price, chart, holders and whale trades", url: location.href.split("#")[0] };
-      if (navigator.share) navigator.share(data).catch(() => {}); else copy(data.url, "Link copied");
+      const p = state.market && state.market.price;
+      if (window.SNEKSHARE) SNEKSHARE.open({ title: "Share the dashboard", text: "$SNEK" + (ok(p) ? " is at $" + Number(p.toPrecision(4)) : "") + ". Live price, chart, whales and wallet tracker on this free, fan-made dashboard by @DavidSandy 🐍" });
+      else copy(location.href.split("#")[0], "Link copied");
     });
     $("copyPolicy").addEventListener("click", () => copy(POLICY, "Policy ID copied"));
     $("refreshBtn").addEventListener("click", () => { refresh(true); loadCandles(); refreshHolders(); toast("Refreshing…"); });
@@ -602,7 +609,7 @@
   }
 
   function init() {
-    window.SNEKAPP = { state, toast, tradeRows: () => tradeRows("all"), chartScrollStart: () => { if (chart) chart.timeScale().setVisibleLogicalRange({ from: 0, to: 120 }); } };
+    window.SNEKAPP = { state, toast, chart: () => chart, tradeRows: () => tradeRows("all"), chartScrollStart: () => { if (chart) chart.timeScale().setVisibleLogicalRange({ from: 0, to: 120 }); } };
     loadSnapshot(); seedSpark(); setupChrome();
     if (FX) FX.init({ onRefresh: () => Promise.all([refresh(true), refreshHolders()]).then(() => { loadCandles(); toast("Updated", "ok"); }) }); setupPortfolio(); setupAlerts(); setupChartControls(); initChart();
     renderMarket(); renderHolders(); renderPools(); renderVenues(); renderTrades(); renderStatus();

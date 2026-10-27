@@ -7,15 +7,32 @@
 <meta name="description" content="Fan-made, unofficial SNEK dashboard: live price, TradingView-style chart, liquidity, holders, whale trades, portfolio tracker and price alerts. Not affiliated with SNEK.">
 <meta name="theme-color" content="#05080a">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/brand/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/brand/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="assets/brand/favicon-64.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SNEK Dashboard (Fan-made)">
+<meta property="og:title" content="SNEK Dashboard (Fan-made) · live price, chart, whales & wallets">
+<meta property="og:description" content="Free, fan-made SNEK dashboard by @DavidSandy: live price, candles back to Dec 2023, holders, whale feed and a wallet tracker. Not affiliated with SNEK.">
+<meta property="og:url" content="https://davidsandyofficial.github.io/snek-dashboard/">
+<meta property="og:image" content="https://davidsandyofficial.github.io/snek-dashboard/assets/og/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="SNEK Dashboard, fan-made and unofficial, with the SNEK mascot">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:creator" content="@DavidSandy">
+<meta name="twitter:title" content="SNEK Dashboard (Fan-made)">
+<meta name="twitter:description" content="Live SNEK price, chart, whales and wallet tracker. Free, fan-made, not affiliated with SNEK.">
+<meta name="twitter:image" content="https://davidsandyofficial.github.io/snek-dashboard/assets/og/og.png">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/style.css">
-<script>try{var t=localStorage.getItem("snek-theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script>try{var d=document.documentElement,t=localStorage.getItem("snek-theme"),s=JSON.parse(localStorage.getItem("snek-settings")||"{}");if(s.theme||t)d.dataset.theme=s.theme||t;if(s.density)d.dataset.density=s.density;if(s.fs)d.dataset.fs=s.fs;if(s.bg)d.dataset.bg=s.bg;if(s.fx===false)d.classList.add("nofx");if(s.accent&&/^#[0-9a-f]{6}$/i.test(s.accent))d.style.setProperty("--snek",s.accent);
+/* chart deep link: #chart=1D&cur=ada&type=line&ind=rsi,macd */var m=location.hash.match(/^#chart=([^&]+)(.*)$/);if(m){var q={};m[2].split("&").forEach(function(p){var k=p.split("=");if(k[0])q[k[0]]=decodeURIComponent(k[1]||"")});if(/^(5m|15m|1H|4H|1D)$/.test(m[1]))localStorage.setItem("snek-iv",JSON.stringify(m[1]));if(q.cur==="ada"||q.cur==="usd")localStorage.setItem("snek-cur",JSON.stringify(q.cur));if(q.type==="line"||q.type==="candle")localStorage.setItem("snek-type",JSON.stringify(q.type));if(q.ind!==undefined){var on=q.ind.split(","),o=JSON.parse(localStorage.getItem("snek-ind")||"{}");["sma1","sma2","ema1","ema2","bb","vwap","volma","rsi","macd","stochrsi","atr"].concat(Object.keys(o)).forEach(function(id){o[id]=o[id]||{};o[id].on=on.indexOf(id)>=0});localStorage.setItem("snek-ind",JSON.stringify(o))}}}catch(e){}</script>
 </head>
 <body>
 <a class="skip" href="#overview">Skip to content</a>
 <div id="splash" class="splash" aria-hidden="true">
-  <img src="assets/brand/snek-face-happy.webp" alt="" width="180" height="120">
+  <div class="splash-art"><img class="sa1" src="assets/brand/snek-face-happy.webp" alt="" width="180" height="120"><img class="sa2" src="assets/brand/snek-face-sleepy.webp" alt="" width="180" height="113"><img class="sa3" src="assets/brand/snek-face-tongue.webp" alt="" width="180" height="119"></div>
   <div class="splash-title">SNEK Dashboard</div>
   <div class="fanbadge big">Fan-made · Unofficial · Not affiliated with SNEK</div>
   <div class="splash-bar"><i></i></div>
@@ -26,7 +43,8 @@
   <div class="actions">
     <button id="shareBtn" class="icon-btn" aria-label="Share" title="Share">↗</button>
     <button id="layoutBtn" class="pill-btn" type="button" title="Customize layout: drag, pin, hide widgets or pick a preset"><span aria-hidden="true">✎</span><span>Customize</span></button>
-    <button id="themeBtn" class="icon-btn" aria-label="Toggle light or dark theme" title="Theme">◐</button>
+    <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="Settings (,)">⚙</button>
+    <button id="themeBtn" class="icon-btn" aria-label="Switch theme" title="Theme">◐</button>
     <button id="refreshBtn" class="icon-btn" aria-label="Refresh now" title="Refresh">⟳</button>
   </div>
 </header>
@@ -50,11 +68,12 @@
 <main id="wgrid" class="wgrid">
     <div class="card w hero" id="overview" data-w="price" data-tab="overview" data-title="Price & key stats" data-size="8">
       <div>
-        <div class="muted small">SNEK / USD</div>
+        <div class="muted small" id="pairLbl">SNEK / USD</div>
         <div class="price" id="price"><span class="skel w160">&nbsp;</span></div>
         <div class="sub"><span id="priceAda" class="skel w80">&nbsp;</span> · <span id="ch24"></span> <span class="muted">24h</span></div>
         <div class="muted small pricesrc" id="priceSrc"></div>
       </div>
+      <figure class="hero-art" aria-hidden="true"><img src="assets/brand/snek-mascot-front.webp" alt="" width="311" height="360" loading="eager"><figcaption>Fan art use · © SNEK</figcaption></figure>
       <div class="kpis" id="kpis"><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div></div>
     </div>
     <div class="card w" data-w="venues" data-tab="overview" data-title="Live prices by venue" data-size="4">
@@ -89,6 +108,7 @@
         <div class="seg" id="typeSeg" role="group" aria-label="Chart type"><button data-v="candle">Candles</button><button data-v="line">Line</button></div>
         <div class="seg" id="curSeg" role="group" aria-label="Currency"><button data-v="usd">USD</button><button data-v="ada">ADA</button></div>
         <button class="btn ind-btn" id="indBtn" type="button" aria-haspopup="dialog">ƒx Indicators</button>
+        <button class="btn" id="chartShare" type="button" title="Share this chart as an image">⇪ Share</button>
       </div>
       <div class="legend-ohlc" id="ohlc">&nbsp;</div>
       <div id="tvchart" class="tvchart"><div class="skel fill"></div></div>
@@ -209,7 +229,7 @@
         <button id="installBtn" class="btn primary mt" hidden>Install app</button>
       </div>
 </main>
-<div class="layoutbar"><button id="layoutBtn2" class="btn" type="button">✎ Customize layout</button></div>
+<div class="layoutbar"><button id="layoutBtn2" class="btn" type="button">✎ Customize layout</button> <button class="btn" type="button" data-open-settings>⚙ Settings · themes, currency, profiles</button></div>
 <button id="layoutFab" class="fab-pill" type="button" aria-label="Customize layout"><span aria-hidden="true">✎</span> Customize</button>
 
 <footer class="muted small">
@@ -225,10 +245,12 @@
 <script src="assets/vendor/d3-hierarchy.min.js"></script>
 <script src="assets/snapshot.js"></script>
 <script src="assets/fx.js"></script>
+<script src="assets/settings.js"></script>
 <script src="assets/live.js"></script>
 <script src="assets/history.js"></script>
 <script src="assets/wallets.js"></script>
 <script src="assets/phist.js"></script>
+<script src="assets/share.js"></script>
 <script src="assets/vendor/Sortable.min.js"></script>
 <script src="assets/layout.js"></script>
 <script src="assets/indicators.js"></script>

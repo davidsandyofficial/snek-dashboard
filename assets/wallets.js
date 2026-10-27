@@ -13,7 +13,7 @@
   const ok = (v) => v !== null && v !== undefined && isFinite(v);
   const n0 = (v) => (ok(v) ? Math.round(v).toLocaleString("en-US") : "–");
   const cmp = (v) => (ok(v) ? Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(v) : "–");
-  const usdc = (v) => (ok(v) ? "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(v) : "–");
+  const usdc = (v) => (ok(v) ? (window.SNEKFMT ? SNEKFMT.money(v, "compact") : "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(v)) : "–");
   const short = (a) => (!a ? "" : a.length <= 18 ? a : a.slice(0, 10) + "…" + a.slice(-6));
   const signed = (v) => (v > 0 ? "+" : v < 0 ? "−" : "±") + cmp(Math.abs(v));
   const app = () => window.SNEKAPP || {};
@@ -447,6 +447,7 @@
 
   // ---------- whale feed: big trades + top-holder moves + your tracked wallets ----------
   const LOG_KEY = "snek-watchlog";
+  let feedList = [];
   function renderFeed() {
     const el = $("wFeed"); if (!el) return;
     const min = +(store.get("snek-feedmin", 2000)), f = store.get("snek-feedf", { src: "all", side: "all" }), S = window.SNEK_SNAPSHOT || {}, items = [];
@@ -457,9 +458,10 @@
     const list = items.filter((i) => f.side === "all" || (f.side === "buy") === i.buy).sort((a, b) => b.t - a.t);
     $("wFeedNote").textContent = (f.src === "all" || f.src === "trades" ? "Trades ≥ " + usdc(min) : "") + (f.src === "all" ? " · " : "") + (f.src === "all" || f.src === "holders" ? "top-10 holder moves ≥ 1M SNEK" : "") + (f.src === "all" ? " · " : "") + (f.src === "all" || f.src === "tracked" ? "your tracked wallets" : "");
     const fb = $("wFeedFilters"); if (fb) fb.querySelectorAll("[data-fs],[data-fd]").forEach((b) => b.classList.toggle("on", b.dataset.fs ? b.dataset.fs === f.src : b.dataset.fd === f.side));
+    feedList = list;
     el.innerHTML = list.length ? '<div class="wfeed">' + list.slice(0, 30).map((i) => '<div class="wfi ' + i.cls + '"><span class="wfic">' + i.icon + '</span><div class="grow"><div class="' + i.cls + '"><b>' + esc(i.text) + '</b></div><div class="muted small">' + esc(i.sub) + " · " + tz(i.t) + "</div>" + (i.usd ? '<div class="wfbar"><i style="width:' + Math.min(100, Math.log10(i.usd / min + 1) * 60) + '%"></i></div>' : "") + "</div>" +
-      (i.addr ? '<button class="linkbtn wopen" data-id="' + esc(i.addr) + '">Wallet</button>' : "") + (i.link ? ' <a class="linkbtn" href="' + i.link + '" target="_blank" rel="noopener">Tx</a>' : "") + "</div>").join("") + "</div>"
-      : '<div class="wempty small"><img src="assets/brand/snek-face-happy.webp" alt="" width="64" height="44" loading="lazy"><span>No whale moves match these filters right now. Try a lower threshold or “All”.</span></div>';
+      (i.addr ? '<button class="linkbtn wopen" data-id="' + esc(i.addr) + '">Wallet</button>' : "") + (i.link ? ' <a class="linkbtn" href="' + i.link + '" target="_blank" rel="noopener">Tx</a>' : "") + (i.kind === "trades" ? ' <button class="linkbtn wshare" data-i="' + list.indexOf(i) + '" title="Share this whale move as an image">⇪</button>' : "") + "</div>").join("") + "</div>"
+      : '<div class="wempty small"><img src="assets/brand/snek-face-sleepy.webp" alt="" width="64" height="40" loading="lazy"><span>No whale moves match these filters right now. Try a lower threshold or “All”.</span></div>';
   }
 
   // ---------- watchlist ----------
@@ -474,6 +476,7 @@
       saveWatch(l); toast("Tracking " + displayName(w) + ". You’ll get a heads-up here when its SNEK balance moves.", "ok");
       if (FX()) FX().haptic(15);
       if (window.SNEKFX && SNEKFX.confetti && !store.get("snek-firsttrack", 0)) { store.set("snek-firsttrack", 1); const b = $("wTrackBtn"); SNEKFX.confetti(b); }
+      if (window.SNEKSHARE) setTimeout(() => SNEKSHARE.nudge("Nice, you’re tracking " + displayName(w) + ". Share this wallet card?", w), 1800);
     }
     renderWatch(); if (current) { const t = current.tab; renderProfile(current, false); current.tab = t; }
   }
@@ -561,7 +564,7 @@
         else if (a === "actmore") { w.act.show = (w.act.show || 20) + 30; renderActivity(w); }
         else if (a === "actnext") loadActivity(w, true);
         else if (a === "csv") csv(w);
-        else if (a === "share") shareLink(w);
+        else if (a === "share") { if (window.SNEKSHARE) SNEKSHARE.wallet(w); else shareLink(w); }
         else if (a === "cmpopen") { const b = $("wCmpBox"); b.hidden = !b.hidden; if (!b.hidden) $("wCmpIn").focus(); }
       }
       const cb = e.target.closest("[data-cmp]"); if (cb && w) { $("wCmpIn").value = cb.dataset.cmp; compare(w, cb.dataset.cmp); }
@@ -582,10 +585,11 @@
     const ff = $("wFeedFilters"); if (ff) ff.addEventListener("click", (e) => { const b = e.target.closest("[data-fs],[data-fd]"); if (!b) return; const f = store.get("snek-feedf", { src: "all", side: "all" }); if (b.dataset.fs) f.src = b.dataset.fs; else f.side = b.dataset.fd; store.set("snek-feedf", f); renderFeed(); });
     const feed = $("wFeed");
     if (feed) {
-      feed.addEventListener("click", (e) => { const o = e.target.closest(".wopen"); if (o) { $("wInput").value = o.dataset.id; lookup(o.dataset.id); $("wallets").scrollIntoView({ behavior: "smooth" }); } });
+      feed.addEventListener("click", (e) => { const sh = e.target.closest(".wshare"); if (sh) { const it = feedList[+sh.dataset.i]; if (it && window.SNEKSHARE) SNEKSHARE.whale(Object.assign({}, it, { when: tz(it.t) })); return; } const o = e.target.closest(".wopen"); if (o) { $("wInput").value = o.dataset.id; lookup(o.dataset.id); $("wallets").scrollIntoView({ behavior: "smooth" }); } });
       const sel = $("wFeedMin"); if (sel) { sel.value = String(store.get("snek-feedmin", 2000)); sel.addEventListener("change", () => { store.set("snek-feedmin", +sel.value); renderFeed(); }); }
       setTimeout(renderFeed, 4000); setInterval(() => { if (document.visibilityState === "visible") renderFeed(); }, 15000);
     }
+    window.addEventListener("snek:fmt", () => { renderFeed(); renderWatch(); if (current) { const t = current.tab; renderProfile(current, false); current.tab = t; } });
     window.addEventListener("hashchange", () => { const m = location.hash.match(/^#wallet=(.+)$/); if (m) { const q = decodeURIComponent(m[1]); if (!current || current.query !== q) { $("wInput").value = q; lookup(q); $("wallets").scrollIntoView({ behavior: "smooth" }); } } });
     $("wWatch").addEventListener("click", (e) => {
       const tg = e.target.closest("[data-tag]"); if (tg) { watchTag = tg.dataset.tag || null; renderWatch(); return; }

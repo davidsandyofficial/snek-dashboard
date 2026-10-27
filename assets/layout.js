@@ -10,7 +10,7 @@
   const DEFAULT = all().map((w) => w.dataset.w);
   const DEFSIZE = {}; all().forEach((w) => (DEFSIZE[w.dataset.w] = +w.dataset.size || 12));
   const wide = () => innerWidth >= 900;
-  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduced = () => document.documentElement.classList.contains("nofx") || matchMedia("(prefers-reduced-motion: reduce)").matches;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   // v2: the "Built by @DavidSandy" follow card is pinned to the very top by default; older saved layouts get it pinned once.
   const TOP = "follow";
@@ -122,7 +122,7 @@
     const vis = visibleOrder(), i = vis.indexOf(id), pin = L.pinned.includes(id), sz = L.size[id] || DEFSIZE[id];
     const canUp = i > 0 && L.pinned.includes(vis[i - 1]) === pin, canDown = i < vis.length - 1 && L.pinned.includes(vis[i + 1]) === pin;
     const item = (a, label, dis) => '<button type="button" role="menuitem" data-m="' + a + '"' + (dis ? " disabled" : "") + ">" + label + "</button>";
-    menu.innerHTML = '<div class="wmh">' + esc(w.dataset.title) + "</div>" + item("pin", pin ? "📌 Unpin" : "📌 Pin to top") + item("up", "↑ Move up", !canUp) + item("down", "↓ Move down", !canDown) + (wide() ? item("size", "↔ Width: " + sizeName(sz) + " → " + sizeName(SIZES[(SIZES.indexOf(sz) + 1) % SIZES.length])) + (L.size[id] || L.height[id] ? item("rsize", "↺ Reset size") : "") : "") + item("hide", "🙈 Hide") + '<div class="wmsep"></div>' + item("edit", "✎ Customize layout…");
+    menu.innerHTML = '<div class="wmh">' + esc(w.dataset.title) + "</div>" + item("pin", pin ? "📌 Unpin" : "📌 Pin to top") + item("up", "↑ Move up", !canUp) + item("down", "↓ Move down", !canDown) + (wide() ? item("size", "↔ Width: " + sizeName(sz) + " → " + sizeName(SIZES[(SIZES.indexOf(sz) + 1) % SIZES.length])) + (L.size[id] || L.height[id] ? item("rsize", "↺ Reset size") : "") : "") + item("hide", "🙈 Hide") + '<div class="wmsep"></div>' + item("edit", "✎ Customize layout…") + item("settings", "⚙ Settings…");
     document.body.appendChild(menu);
     const r = btn.getBoundingClientRect(), mw = menu.offsetWidth, mh = menu.offsetHeight;
     let top = r.bottom + 6, left = Math.min(innerWidth - mw - 8, Math.max(8, r.right - mw));
@@ -136,7 +136,7 @@
   document.addEventListener("click", (e) => {
     const k = e.target.closest(".wkebab"); if (k) { e.preventDefault(); if (menu && menuFor === k.closest(".w").dataset.w) closeMenu(); else openMenu(k); return; }
     const m = e.target.closest(".wmenu [data-m]");
-    if (m) { const id = menuFor, a = m.dataset.m; closeMenu(); if (a === "pin") togglePin(id); else if (a === "up") move(id, -1); else if (a === "down") move(id, 1); else if (a === "size") cycleSize(id); else if (a === "rsize") resetSize(id); else if (a === "hide") hide(id); else if (a === "edit") setEditing(true); return; }
+    if (m) { const id = menuFor, a = m.dataset.m; closeMenu(); if (a === "pin") togglePin(id); else if (a === "up") move(id, -1); else if (a === "down") move(id, 1); else if (a === "size") cycleSize(id); else if (a === "rsize") resetSize(id); else if (a === "hide") hide(id); else if (a === "edit") setEditing(true); else if (a === "settings" && window.SNEKSET) SNEKSET.open(); return; }
     if (menu && !e.target.closest(".wmenu")) closeMenu();
   });
   let menuY = 0; addEventListener("scroll", () => { if (menu && Math.abs(scrollY - menuY) > 40) closeMenu(); }, { passive: true });
@@ -358,5 +358,14 @@
     if ((e.ctrlKey || e.metaKey) && e.key === "z" && undoStack.length && !e.target.closest("input,textarea")) { e.preventDefault(); undo(); }
   });
   apply(); sortMode(false);
-  window.SNEKLAYOUT = { goto, setEditing, applyPreset, undo, resetSize, get: () => JSON.parse(JSON.stringify(L)), isEditing: () => editing };
+  // set(): used by Settings profiles, share codes and #layout= links (validated by normalize; follow card stays pinned on top)
+  function setLayout(o) {
+    if (!o || !Array.isArray(o.order)) return false;
+    const prev = JSON.parse(JSON.stringify(L));
+    L = { v: 2, order: o.order.slice(), pinned: [TOP].concat((o.pinned || []).filter((x) => x !== TOP)), hidden: (o.hidden || []).filter((x) => x !== TOP), size: Object.assign({}, o.size), height: Object.assign({}, o.height), preset: o.preset || null };
+    Object.keys(L.size).forEach((k) => { const n = +L.size[k]; if (!(n >= 3 && n <= 12)) delete L.size[k]; });
+    Object.keys(L.height).forEach((k) => { const n = +L.height[k]; if (!(n >= 160 && n <= 1600)) delete L.height[k]; });
+    undoStack.push(JSON.stringify(prev)); save(); apply(true); return true;
+  }
+  window.SNEKLAYOUT = { goto, setEditing, applyPreset, undo, resetSize, set: setLayout, get: () => JSON.parse(JSON.stringify(L)), isEditing: () => editing };
 })();

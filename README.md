@@ -99,3 +99,16 @@ A draggable "Portfolio history" widget shows the wallet you looked up, or one yo
   - Today uses live prices.
 - **Chart and stats:** a USD/ADA toggle, 7D/30D/90D/1Y/All ranges, a SNEK balance line, and tooltips. Also: change in value over the range (includes transfers), price-driven P/L (held balance × daily price moves) and the ATH portfolio value.
 - **No interpolation:** days without prices stay empty and are listed as gaps, and the covered date range is always shown.
+
+## Settings (⚙ in the header, the "," key, or ⋯ → Settings)
+- Look: Dark, Light, OLED black or SNEK green theme (◐ cycles them), accent color presets plus a custom picker, compact/comfy density, text size S–XL, optional background art from the official SNEK media kit, effects/animations on/off, soft sounds on/off (off by default).
+- Numbers: currency USD, ADA (live ADA/USD) or EUR, GBP, JPY, CAD, AUD, CHF, INR, BRL, KRW, MXN (ECB rates from the keyless Frankfurter API, cached 12 h; values fall back to USD if rates are unavailable), compact or full numbers, separator style.
+- Dashboard: custom name in the header (the fan-made label always stays), the tab to open on.
+- Saved layouts: keep up to 12 named layouts and switch with one tap.
+- Backup & share: export/import a JSON file, copy a `#cfg=` share link, or paste a code. Incoming `#cfg=`/`#layout=` links always ask before applying.
+
+## Sharing
+- ↗ in the header and ⇪ Share on the chart, wallet cards and whale moves open a share sheet: Post on X (opens X's composer with a prefilled post mentioning @DavidSandy; you review and send it), the native share sheet, copy link and save image.
+- Images are drawn in the browser on a canvas (chart via Lightweight Charts `takeScreenshot()`), framed with the SNEK logo, a fan-made label, "by @DavidSandy" and the site URL watermark.
+- Deep links: `#wallet=$handle`, `#chart=1D&cur=ada&type=line&ind=rsi,macd`, `#s=holders`, `#cfg=…`, `#layout=…`. `s/chart.html`, `s/wallets.html` and `s/holders.html` carry per-section preview images and forward to the dashboard.
+- One gentle share prompt after you track a wallet, at most once a week, auto-dismissing. No popups.

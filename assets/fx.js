@@ -4,7 +4,7 @@
 (function () {
   "use strict";
   const mq = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
-  const reduced = () => mq.matches;
+  const reduced = () => mq.matches || document.documentElement.classList.contains("nofx");
   const $ = (id) => document.getElementById(id);
   const FX = {};
 
