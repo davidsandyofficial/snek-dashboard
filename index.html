@@ -1,103 +1,176 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SNEK Analytics — Cardano memecoin dashboard</title>
-<meta name="description" content="Live SNEK price, chart, liquidity, holders and trades on Cardano.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SNEK Analytics — live Cardano memecoin dashboard</title>
+<meta name="description" content="Live SNEK price, TradingView-style chart, liquidity, holders, whale trades, portfolio tracker and price alerts.">
+<meta name="theme-color" content="#0b0f0c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
 <link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("snek-theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
+<a class="skip" href="#overview">Skip to content</a>
 <header class="top">
-  <div class="brand"><span class="logo">🐍</span><div><h1>SNEK Analytics</h1><p class="muted">Cardano memecoin dashboard</p></div></div>
-  <div class="status"><span id="statusDot" class="dot"></span><span id="statusText">Loading…</span><button id="refreshBtn" class="btn">Refresh</button></div>
+  <div class="brand"><img src="assets/icons/icon-192.png" alt="" class="logo"><div><h1>SNEK Analytics</h1><p class="muted small hide-sm">Live Cardano memecoin dashboard</p></div></div>
+  <div class="ticker" aria-live="polite"><span id="tPrice" class="skel w80">&nbsp;</span><span id="tChg" class="chg"></span></div>
+  <div class="actions">
+    <button id="shareBtn" class="icon-btn" aria-label="Share" title="Share">↗</button>
+    <button id="themeBtn" class="icon-btn" aria-label="Toggle light or dark theme" title="Theme">◐</button>
+    <button id="refreshBtn" class="icon-btn" aria-label="Refresh now" title="Refresh">⟳</button>
+  </div>
 </header>
+<div class="statusbar"><span id="statusDot" class="dot"></span><span id="statusText">Loading…</span></div>
+
+<nav class="tabs" aria-label="Sections">
+  <a href="#overview" data-tab="overview"><span>◎</span>Overview</a>
+  <a href="#chart" data-tab="chart"><span>📈</span>Chart</a>
+  <a href="#holders" data-tab="holders"><span>👥</span>Holders</a>
+  <a href="#pools" data-tab="pools"><span>💧</span>Pools</a>
+  <a href="#trades" data-tab="trades"><span>⇄</span>Trades</a>
+  <a href="#tools" data-tab="tools"><span>🧰</span>Tools</a>
+</nav>
 
 <main>
-  <section class="hero card">
-    <div>
-      <div class="muted small">SNEK / USD</div>
-      <div class="price" id="price">—</div>
-      <div class="sub"><span id="priceAda">—</span> · <span id="ch24" class="chg">—</span> <span class="muted">24h</span></div>
-    </div>
-    <div class="kpis" id="kpis"></div>
-  </section>
-
-  <section class="card">
-    <div class="row between wrap">
-      <h2>Price chart</h2>
-      <div class="row wrap gap">
-        <div class="seg" id="tfSeg"></div>
-        <div class="seg" id="unitSeg"></div>
+  <section id="overview" class="sect">
+    <div class="card hero">
+      <div>
+        <div class="muted small">SNEK / USD</div>
+        <div class="price" id="price"><span class="skel w160">&nbsp;</span></div>
+        <div class="sub"><span id="priceAda" class="skel w80">&nbsp;</span> · <span id="ch24"></span> <span class="muted">24h</span></div>
       </div>
+      <div class="kpis" id="kpis"><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div></div>
     </div>
-    <div class="chart-meta" id="chartMeta"></div>
-    <div id="chart" class="chart"></div>
-  </section>
-
-  <div class="grid2">
-    <section class="card">
-      <h2>Value calculator</h2>
-      <div class="calc">
-        <label>Amount<input id="calcAmt" type="number" min="0" value="1000000"></label>
-        <label>Amount is in<select id="calcUnit"><option value="snek">SNEK</option><option value="usd">USD</option><option value="ada">ADA</option></select></label>
-      </div>
-      <div class="calc-out" id="calcOut"></div>
-    </section>
-    <section class="card">
+    <div class="card">
       <h2>Token stats</h2>
-      <dl class="props" id="stats"></dl>
-    </section>
-  </div>
-
-  <section class="card">
-    <div class="row between wrap"><h2>Holders</h2><span class="muted small" id="holderNote"></span></div>
-    <div class="grid2 inner">
-      <div><h3>Share of supply by tier</h3><div id="tierChart"></div></div>
-      <div><h3>Concentration by rank</h3><div id="rankChart"></div></div>
+      <dl class="props" id="stats"><dt class="skel w120">&nbsp;</dt><dd class="skel w120">&nbsp;</dd></dl>
+      <div class="row wrap gap mt">
+        <button id="copyPolicy" class="btn">Copy policy ID</button>
+        <span class="mono small muted">279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f</span>
+      </div>
     </div>
-    <h3>Top 10 wallets</h3>
-    <div class="table-wrap"><table id="holdersTable"></table></div>
   </section>
 
-  <section class="card">
-    <div class="row between wrap"><h2>Liquidity by DEX</h2><span class="muted small">GeckoTerminal-tracked pools</span></div>
-    <div id="dexChart"></div>
-    <div class="table-wrap"><table id="poolsTable"></table></div>
+  <section id="chart" class="sect">
+    <div class="card">
+      <div class="row between wrap gap">
+        <h2>Price chart <span class="muted small" id="chartSrc"></span></h2>
+        <div class="chips" id="ivChips" role="group" aria-label="Interval"></div>
+      </div>
+      <div class="row wrap gap mt">
+        <div class="seg" id="typeSeg" role="group" aria-label="Chart type"><button data-v="candle">Candles</button><button data-v="line">Line</button></div>
+        <div class="seg" id="curSeg" role="group" aria-label="Currency"><button data-v="usd">USD</button><button data-v="ada">ADA</button></div>
+        <div class="seg" id="maSeg" role="group" aria-label="Moving averages"><button data-v="20">MA20</button><button data-v="50">MA50</button></div>
+      </div>
+      <div class="legend-ohlc" id="ohlc">&nbsp;</div>
+      <div id="tvchart" class="tvchart"><div class="skel fill"></div></div>
+      <p class="muted small">Main Minswap SNEK/ADA pool, OHLCV from GeckoTerminal; last candle updates every 10 s. Pinch or scroll to zoom, drag to pan. Times in CT. Charting by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a> Lightweight Charts™.</p>
+    </div>
   </section>
 
-  <div class="grid2">
-    <section class="card">
+  <section id="holders" class="sect">
+    <div class="card">
+      <div class="row between wrap"><h2>Holders</h2><span class="muted small" id="holderNote"></span></div>
+      <div class="hcount"><span id="holderCount" class="skel w120">&nbsp;</span><span class="muted small" id="holderSub"></span></div>
+      <div class="grid2 inner">
+        <div><h3>Share of supply by tier</h3><div id="tierChart"><div class="skel h120"></div></div></div>
+        <div><h3>Concentration by rank</h3><div id="rankChart"><div class="skel h120"></div></div></div>
+      </div>
+      <h3>Top 10 wallets map</h3>
+      <div id="treemap" class="treemap"><div class="skel h160"></div></div>
+      <div class="table-wrap"><table id="holdersTable"></table></div>
+    </div>
+  </section>
+
+  <section id="pools" class="sect">
+    <div class="card">
+      <div class="row between wrap"><h2>Liquidity by DEX</h2><span class="muted small">GeckoTerminal-tracked pools</span></div>
+      <div id="dexChart"><div class="skel h56"></div></div>
+      <div class="table-wrap"><table id="poolsTable"></table></div>
+    </div>
+    <div class="card">
       <h2>24h volume by venue</h2>
-      <div id="venueChart"></div>
-    </section>
-    <section class="card">
-      <div class="row between wrap"><h2>Recent trades</h2><span class="muted small">Main Minswap SNEK/ADA pool</span></div>
-      <div class="table-wrap"><table id="tradesTable"></table></div>
-    </section>
-  </div>
-
-  <section class="card">
-    <h2>Official links</h2>
-    <div class="links">
-      <a href="https://www.snek.com/" target="_blank" rel="noopener">Website</a>
-      <a href="https://x.com/snek" target="_blank" rel="noopener">X / Twitter</a>
-      <a href="https://t.me/snekcoinada" target="_blank" rel="noopener">Telegram</a>
-      <a href="https://discord.gg/snekcoin" target="_blank" rel="noopener">Discord</a>
-      <a href="https://www.youtube.com/@snek" target="_blank" rel="noopener">YouTube</a>
-      <a href="https://www.reddit.com/r/snekcoinada" target="_blank" rel="noopener">Reddit</a>
-      <a href="https://cardanoscan.io/token/279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b" target="_blank" rel="noopener">Cardanoscan</a>
-      <a href="https://www.coingecko.com/en/coins/snek" target="_blank" rel="noopener">CoinGecko</a>
+      <div id="venueChart"><div class="skel h120"></div></div>
     </div>
-    <p class="muted small mono">Policy ID 279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f · Asset name SNEK</p>
+  </section>
+
+  <section id="trades" class="sect">
+    <div class="card">
+      <div class="row between wrap gap"><h2>Recent trades</h2>
+        <div class="row wrap gap">
+          <label class="inline">Whale ≥ <select id="whaleMin"><option value="250">$250</option><option value="500" selected>$500</option><option value="1000">$1,000</option><option value="5000">$5,000</option></select></label>
+          <label class="inline switch"><input type="checkbox" id="whaleOnly"> Whales only</label>
+        </div>
+      </div>
+      <p class="muted small" id="whaleSummary"></p>
+      <div class="table-wrap"><table id="tradesTable"><tr><td><div class="skel h120"></div></td></tr></table></div>
+    </div>
+  </section>
+
+  <section id="tools" class="sect">
+    <div class="grid2">
+      <div class="card">
+        <h2>Portfolio tracker</h2>
+        <div class="form2">
+          <label>SNEK held<input id="pfAmt" type="number" inputmode="decimal" min="0" placeholder="e.g. 1000000"></label>
+          <label>Avg buy price (USD, optional)<input id="pfCost" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 0.0005"></label>
+        </div>
+        <div class="out" id="pfOut"></div>
+        <details class="mt"><summary>Fill from a public Cardano address</summary>
+          <p class="muted small">Paste an <span class="mono">addr1…</span> or <span class="mono">stake1…</span> address to read its SNEK balance from Koios. Read-only: no wallet connection, nothing to sign.</p>
+          <div class="row gap wrap"><input id="lookupAddr" class="grow" placeholder="addr1… or stake1…" autocomplete="off" spellcheck="false"><button id="lookupBtn" class="btn primary">Look up</button></div>
+          <p class="small" id="lookupOut"></p>
+        </details>
+        <p class="muted small">Saved only in this browser.</p>
+      </div>
+      <div class="card">
+        <h2>Price alerts</h2>
+        <div class="form3">
+          <label>When price is<select id="alDir"><option value="above">above</option><option value="below">below</option></select></label>
+          <label>USD price<input id="alPrice" type="number" inputmode="decimal" step="any" min="0" placeholder="0.0007"></label>
+          <button id="alAdd" class="btn primary">Add alert</button>
+        </div>
+        <ul class="alerts" id="alList"></ul>
+        <p class="muted small" id="alNote">Browser notifications fire while this tab or the installed app is open.</p>
+      </div>
+      <div class="card">
+        <h2>Value calculator</h2>
+        <div class="form2">
+          <label>Amount<input id="calcAmt" type="number" inputmode="decimal" min="0" value="1000000"></label>
+          <label>Amount is in<select id="calcUnit"><option value="snek">SNEK</option><option value="usd">USD</option><option value="ada">ADA</option></select></label>
+        </div>
+        <div class="out" id="calcOut"></div>
+      </div>
+      <div class="card">
+        <h2>Official links</h2>
+        <div class="links">
+          <a href="https://www.snek.com/" target="_blank" rel="noopener">Website</a>
+          <a href="https://x.com/snek" target="_blank" rel="noopener">X</a>
+          <a href="https://t.me/snekcoinada" target="_blank" rel="noopener">Telegram</a>
+          <a href="https://discord.gg/snekcoin" target="_blank" rel="noopener">Discord</a>
+          <a href="https://www.youtube.com/@snek" target="_blank" rel="noopener">YouTube</a>
+          <a href="https://www.reddit.com/r/snekcoinada" target="_blank" rel="noopener">Reddit</a>
+          <a href="https://cardanoscan.io/token/279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b" target="_blank" rel="noopener">Cardanoscan</a>
+          <a href="https://www.coingecko.com/en/coins/snek" target="_blank" rel="noopener">CoinGecko</a>
+        </div>
+        <button id="installBtn" class="btn primary mt" hidden>Install app</button>
+      </div>
+    </div>
   </section>
 </main>
 
 <footer class="muted small">
-  Data: CoinGecko API (price, history, venues), GeckoTerminal API (pools, trades) — fetched live in your browser, refreshed every 10 s (market stats every 30 s). Holder data is a Cardanoscan snapshot. Fan-made dashboard, not affiliated with SNEK. Not financial advice.
+  <p>Live in your browser: CoinGecko API (price, market stats, venues, every 30 s), GeckoTerminal API (pools, trades, candles, every 10 s), Koios (address lookup). Holder data: Cardanoscan, refreshed by a scheduled GitHub Action and re-checked here every 5 minutes.</p>
+  <p><b>Credits:</b> <a href="https://github.com/tradingview/lightweight-charts" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> (Apache-2.0, © TradingView, Inc.) · <a href="https://github.com/d3/d3-hierarchy" target="_blank" rel="noopener">d3-hierarchy</a> (ISC, © Mike Bostock) · <a href="https://www.koios.rest/" target="_blank" rel="noopener">Koios</a> community API. License texts in <a href="assets/vendor/">assets/vendor</a>.</p>
+  <p>Fan-made, not affiliated with SNEK. Not financial advice.</p>
 </footer>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<script src="assets/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="assets/vendor/d3-hierarchy.min.js"></script>
 <script src="assets/snapshot.js"></script>
 <script src="assets/app.js"></script>
 </body>
