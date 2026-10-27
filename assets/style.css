@@ -88,3 +88,44 @@ footer{max-width:1240px;margin:0 auto;padding:4px clamp(12px,3vw,32px) 28px}
 .empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 8px;text-align:center;color:var(--muted);font-size:13.5px}
 .empty img{width:96px;height:auto;opacity:.95}.empty .fan{font-size:11px;border:1px dashed var(--line);border-radius:6px;padding:1px 6px}
 .fanbadge.big{max-width:none!important;font-size:13px!important}
+
+/* ---------- interaction layer (fx.js) ---------- */
+.ticker{flex-direction:row;align-items:center;gap:8px}.tcol{display:flex;flex-direction:column;align-items:flex-end}
+.spark svg{display:block}.sp-line{fill:none;stroke-width:1.6;stroke-linejoin:round}.sp-line.up,.sp-dot.up{stroke:var(--snek);fill:var(--snek)}.sp-line.down,.sp-dot.down{stroke:var(--red);fill:var(--red)}.sp-line{fill:none!important}
+.sp-area.up{fill:color-mix(in srgb,var(--snek) 18%,transparent)}.sp-area.down{fill:color-mix(in srgb,var(--red) 18%,transparent)}
+@media(max-width:430px){.ticker .tcol{align-items:flex-start}.spark svg{width:56px}}
+.dg{display:inline-block;position:relative;overflow:hidden;vertical-align:bottom;line-height:1.15}
+.dg.roll .o,.dg.roll .n{display:block}.dg.roll .o{position:absolute;inset:0;animation:rollOut .45s ease forwards}.dg.roll .n{animation:rollIn .45s ease}
+@keyframes rollOut{to{transform:translateY(-100%);opacity:0}}@keyframes rollIn{from{transform:translateY(100%);opacity:0}}
+.flash-up{animation:flashUp 1s ease}.flash-down{animation:flashDown 1s ease}
+@keyframes flashUp{0%{background:color-mix(in srgb,var(--snek) 35%,transparent);border-radius:8px}100%{background:transparent}}
+@keyframes flashDown{0%{background:color-mix(in srgb,var(--red) 35%,transparent);border-radius:8px}100%{background:transparent;}}
+.btn,.icon-btn,.seg button,.chips button,.tabs a,.links a,.kpi{position:relative;overflow:hidden;transition:transform .12s ease,border-color .2s,background .2s}
+.btn:active,.icon-btn:active,.seg button:active,.chips button:active,.links a:active,.kpi:active{transform:scale(.96)}
+.tabs a:active span{transform:scale(.85)}.tabs a span{transition:transform .15s}
+.kpi:hover{border-color:var(--snek2)}
+.ripple{position:absolute;border-radius:50%;background:color-mix(in srgb,var(--snek) 35%,transparent);transform:scale(0);animation:rip .6s ease-out;pointer-events:none}
+@keyframes rip{to{transform:scale(2.4);opacity:0}}
+.card.reveal{opacity:0;transform:translateY(18px)}.card.reveal.in{opacity:1;transform:none;transition:opacity .5s ease,transform .5s ease}
+tr.slide-in{animation:slideIn .6s ease}tr.slide-in td{animation:newGlow 2.4s ease}
+@keyframes slideIn{from{transform:translateX(-24px);opacity:0}}@keyframes newGlow{0%{background:color-mix(in srgb,var(--snek) 22%,transparent)}100%{background:transparent}}
+tr.whale.slide-in td{animation:whaleGlow 2.6s ease}@keyframes whaleGlow{0%{background:color-mix(in srgb,var(--yellow) 45%,transparent)}100%{background:color-mix(in srgb,var(--yellow) 12%,transparent)}}
+.drop{position:fixed;z-index:60;pointer-events:none;font-size:18px;animation:drop 1s ease-out forwards}
+@keyframes drop{to{transform:translate(var(--dx),var(--dy)) scale(.6);opacity:0}}
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:70;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(92vw,420px)}
+@media(min-width:900px){.toasts{bottom:24px}}
+.toast2{display:flex;gap:10px;align-items:center;background:var(--card);color:var(--text);border:1px solid var(--line);border-left:4px solid var(--snek);border-radius:12px;padding:10px 14px;box-shadow:0 8px 24px #0006;opacity:0;transform:translateY(16px) scale(.98);transition:.25s ease;font-size:14px;max-width:100%}
+.toast2.in{opacity:1;transform:none}.toast2.warn{border-left-color:var(--yellow)}.toast2.alert{border-left-color:var(--purple)}.toast2.whale{border-left-color:var(--cyan)}
+.ptr{position:fixed;top:0;left:50%;transform:translate(-50%,-60px);z-index:40;display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 6px;opacity:0;font-size:13px;transition:opacity .2s}
+.ptr img{width:34px;height:auto}.ptr.ready img{transform:rotate(-12deg) scale(1.1)}.ptr.spin img{animation:wig .6s ease-in-out infinite}
+@keyframes wig{50%{transform:rotate(14deg)}}
+.swipe-hint{position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);z-index:45;background:var(--card);border:1px solid var(--snek2);border-radius:999px;padding:8px 16px;font-weight:700;opacity:0;pointer-events:none}
+.swipe-hint.show{animation:hint 1s ease}@keyframes hint{15%{opacity:1}70%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .card.reveal{opacity:1;transform:none}
+}
+#tPrice,#price{white-space:nowrap}
+@media(max-width:430px){.top{gap:6px;padding-left:10px;padding-right:10px}.spark svg{width:42px;height:22px}.fanbadge{max-width:104px;font-size:9.5px}#tPrice{font-size:15px}.actions{gap:4px}}
+@media(max-width:350px){.spark{display:none}}
+@media(max-width:430px){#refreshBtn{display:none}.fanbadge{min-width:100px}.brand{flex:none}}

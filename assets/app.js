@@ -35,7 +35,8 @@
   const stamp = (d) => fmtTime(d, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) + " CT";
   const ago = (d) => { const s = Math.round((Date.now() - d.getTime()) / 1000); if (s < 90) return s + " s ago"; if (s < 5400) return Math.round(s / 60) + " min ago"; if (s < 172800) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " days ago"; };
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600); }
+  const FX = window.SNEKFX || null;
+  function toast(msg, type) { if (FX) { FX.toast(msg, type || (/^🔔/.test(msg) ? "alert" : /copied|added|updated/i.test(msg) ? "ok" : /busy|unavailable|failed|blocked/i.test(msg) ? "warn" : "info")); return; } const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600); }
   function empty(msg) { return '<div class="empty"><img src="assets/brand/snek-face-sad.webp" alt="" width="96" height="65" loading="lazy"><div>' + esc(msg) + '</div><span class="fan">Fan-made dashboard · not affiliated with SNEK</span></div>'; }
   function hideSplash() { const s = $("splash"); if (s && !s.classList.contains("hide")) { s.classList.add("hide"); setTimeout(() => s.remove(), 400); } }
   function unskel(el) { if (el) el.classList.remove("skel", "w80", "w120", "w160"); }
@@ -73,13 +74,18 @@
   function renderMarket() {
     const m = state.market; if (!m) return;
     const pa = priceAda();
-    $("price").innerHTML = usd(m.price);
+    const ptxt = ok(m.price) ? "$" + Number(Number(m.price).toPrecision(4)) : null;
+    if (FX && ptxt) FX.price($("price"), ptxt, m.price); else $("price").innerHTML = usd(m.price);
     unskel($("priceAda")); $("priceAda").innerHTML = ok(pa) ? pa.toPrecision(4) + " ADA" : na();
     $("ch24").innerHTML = pct(m.ch24);
-    unskel($("tPrice")); $("tPrice").innerHTML = usd(m.price); $("tChg").innerHTML = pct(m.ch24);
+    unskel($("tPrice")); if (FX && ptxt) FX.price($("tPrice"), ptxt, m.price); else $("tPrice").innerHTML = usd(m.price); $("tChg").innerHTML = pct(m.ch24);
+    pushSpark(m.price);
     document.title = (ok(m.price) ? "$" + Number(m.price.toPrecision(4)) + " · " : "") + "SNEK Dashboard (Fan-made)";
     const k = [["Market cap", compact(m.mcap)], ["24h volume", compact(m.vol)], ["FDV", compact(m.fdv)], ["7d change", pct(m.ch7)], ["30d change", pct(m.ch30)], ["ADA price", usd(m.adaUsd)], ["CoinGecko rank", ok(m.rank) ? "#" + m.rank : na()]];
-    $("kpis").innerHTML = k.map((x) => '<div class="kpi"><div class="l">' + x[0] + '</div><div class="v">' + x[1] + "</div></div>").join("");
+    const kEl = $("kpis");
+    if (!kEl.dataset.built) { kEl.innerHTML = k.map((x, i) => '<div class="kpi"><div class="l">' + x[0] + '</div><div class="v" id="kpi' + i + '"></div></div>').join(""); kEl.dataset.built = "1"; }
+    const nums = [m.mcap, m.vol, m.fdv];
+    k.forEach((x, i) => { const el = $("kpi" + i); if (FX && i < 3 && ok(nums[i])) FX.countUp(el, nums[i], compact); else el.innerHTML = x[1]; });
     const d = (s) => (s ? fmtTime(new Date(s), { month: "short", day: "numeric", year: "numeric" }) : "");
     const h = SNAP && SNAP.holders;
     const st = [
@@ -170,7 +176,7 @@
       if (seq !== loadSeq) return;
       const bars = toBars(r.data.attributes.ohlcv_list); if (!bars.length) throw new Error("empty");
       candleCache[key] = { t: Date.now(), bars: bars.slice() };
-      state.chart.bars = bars; state.chart.live = true; state.live.candles = true; paint(true);
+      state.chart.bars = bars; state.chart.live = true; state.live.candles = true; paint(true); sparkFromCandles();
     }).catch(() => {
       if (seq !== loadSeq) return;
       state.live.candles = false; state.chart.live = false;
@@ -261,6 +267,7 @@
   function checkAlerts() {
     const p = state.market && state.market.price; if (!ok(p) || !alerts.length) return;
     const hit = alerts.filter((a) => (a.dir === "above" ? p >= a.price : p <= a.price)); if (!hit.length) return;
+    if (FX) FX.haptic([30, 60, 30, 60, 30]);
     hit.forEach((a) => {
       const msg = "SNEK is " + a.dir + " $" + a.price + " (now $" + Number(p.toPrecision(4)) + ")";
       toast("🔔 " + msg + " · fan-made alert");
@@ -314,7 +321,7 @@
     if (!h) { $("holderNote").textContent = "Holder data unavailable"; ["tierChart", "rankChart", "treemap"].forEach((id) => ($(id).innerHTML = empty("Holder data unavailable right now."))); return; }
     const when = new Date(h.asOf);
     $("holderNote").innerHTML = "Updated " + ago(when) + ' <span class="muted">(' + stamp(when) + ", " + esc(h.source) + ")</span>";
-    unskel($("holderCount")); $("holderCount").textContent = num(h.count);
+    unskel($("holderCount")); if (FX) FX.countUp($("holderCount"), h.count, (v) => num(Math.round(v)), 1200); else $("holderCount").textContent = num(h.count);
     $("holderSub").textContent = "holders" + (ok(h.top100) ? " · top 100 hold " + h.top100 + "%" : "");
     if (h.tiers && h.tiers.length) donut($("tierChart"), h.tiers.map((t) => ({ label: t[0], value: t[2], meta: num(t[1]) + " wallets" }))); else $("tierChart").innerHTML = na();
     if (h.ranks && h.ranks.length) bars($("rankChart"), h.ranks.map((r) => ({ label: r[0], value: r[1], display: r[1] + "%" }))); else $("rankChart").innerHTML = na();
@@ -353,8 +360,27 @@
     if (!show.length) { $("tradesTable").innerHTML = "<tr><td>" + empty(rows.length ? "No whale trades in the latest batch. Try a lower threshold." : "Trade data unavailable right now.") + "</td></tr>"; return; }
     $("tradesTable").innerHTML = "<tr><th>Time (CT)</th><th>Side</th><th>ADA</th><th>SNEK</th><th>USD</th></tr>" + show.map((r) => {
       const w = r.usd >= min;
-      return '<tr class="' + (w ? "whale" : "") + '"><td><a href="https://cardanoscan.io/transaction/' + esc(r.a.tx_hash) + '" target="_blank" rel="noopener">' + fmtTime(new Date(r.a.block_timestamp), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</a></td><td class=\"" + (r.buy ? "buy" : "sell") + '">' + (w ? "🐋 " : "") + (r.buy ? "Buy" : "Sell") + "</td><td>" + num(r.ada, 2) + "</td><td>" + num(r.snek) + "</td><td>" + usd(r.usd) + "</td></tr>";
+      return '<tr data-tx="' + esc(r.a.tx_hash) + '" class="' + (w ? "whale" : "") + '"><td><a href="https://cardanoscan.io/transaction/' + esc(r.a.tx_hash) + '" target="_blank" rel="noopener">' + fmtTime(new Date(r.a.block_timestamp), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</a></td><td class=\"" + (r.buy ? "buy" : "sell") + '">' + (w ? "🐋 " : "") + (r.buy ? "Buy" : "Sell") + "</td><td>" + num(r.ada, 2) + "</td><td>" + num(r.snek) + "</td><td>" + usd(r.usd) + "</td></tr>";
     }).join("");
+    if (FX) FX.trades($("tradesTable"));
+  }
+
+  // ---------------- sparkline ----------------
+  let sparkVals = null;
+  function seedSpark() {
+    const o = SNAP && SNAP.ohlcv && SNAP.ohlcv.usd;
+    if (o && o.length) sparkVals = o.slice(-24).map((r) => +r[4]);
+  }
+  function pushSpark(p) {
+    if (!ok(p)) return; if (!sparkVals) sparkVals = [];
+    if (sparkVals[sparkVals.length - 1] !== p) sparkVals.push(p);
+    if (sparkVals.length > 60) sparkVals = sparkVals.slice(-60);
+    if (FX) FX.spark($("tSpark"), sparkVals);
+  }
+  function sparkFromCandles() {
+    if (state.chart.iv === "1H" && state.chart.cur === "usd" && state.chart.live && state.chart.bars.length > 24) {
+      sparkVals = state.chart.bars.slice(-24).map((b) => b.close); if (FX) FX.spark($("tSpark"), sparkVals);
+    }
   }
 
   // ---------------- status / refresh ----------------
@@ -418,7 +444,8 @@
   }
 
   function init() {
-    loadSnapshot(); setupChrome(); setupPortfolio(); setupAlerts(); setupChartControls(); initChart();
+    loadSnapshot(); seedSpark(); setupChrome();
+    if (FX) FX.init({ onRefresh: () => Promise.all([refresh(true), refreshHolders()]).then(() => { loadCandles(); toast("Updated", "ok"); }) }); setupPortfolio(); setupAlerts(); setupChartControls(); initChart();
     renderMarket(); renderHolders(); renderPools(); renderVenues(); renderTrades(); renderStatus();
     $("statusText").textContent = "Fetching live data…";
     setupNotice(); setTimeout(hideSplash, 3500);
