@@ -227,7 +227,7 @@ body.editing .fab-pill{display:none!important}
 .wkebab span{display:block;transform:translateY(-3px)}
 .w:hover>.wkebab,.wkebab:focus-visible,.wkebab[aria-expanded=true]{opacity:1;background:var(--card2);border-color:var(--line)}
 body.editing .wkebab{display:none}
-.wgrid>.w>.row:first-child,.wgrid>.w>h2:first-child,.wgrid>.w.hero>div:first-child:not(.wctl){padding-right:74px}
+.wgrid>.w>.row:first-child,.wgrid>.w>h2:first-child,.wgrid>.w.hero>div:first-child:not(.wctl){padding-right:34px}
 .wmenu{position:fixed;z-index:80;min-width:210px;padding:6px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 14px 40px rgba(0,0,0,.4);opacity:0;transform:translateY(-4px) scale(.98);transform-origin:top right;transition:opacity .14s,transform .14s}
 .wmenu.open{opacity:1;transform:none}
 .wmenu .wmh{font-size:12px;color:var(--muted);padding:6px 10px 4px}
@@ -454,3 +454,25 @@ body.resizing .wgrid>.w{transition:none}
 .follow.compact .fexpand{display:inline-flex;align-items:center}
 .follow.compact .row{margin:0}.follow.compact .btn{min-height:36px;font-size:13px}
 body.editing .wgrid>.w.wsized{height:auto}
+
+/* portfolio history widget */
+.phchart-wrap{position:relative;margin-top:10px}
+.phchart{height:clamp(260px,42vh,420px)}
+.wsized[data-w="whist"] .phchart{height:clamp(220px,calc(var(--h) - 330px),1200px)}
+.phtip{position:absolute;z-index:4;pointer-events:none;min-width:150px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--card) 92%,transparent);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.35);font-size:12px;line-height:1.45;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.phtip b{font-size:13px}
+.phlegend{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0}.phlegend span{display:inline-flex;align-items:center;gap:6px}.phlegend i{width:12px;height:3px;border-radius:2px;display:inline-block}
+#phPick:empty{display:none}#phPick{margin-top:8px}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+
+/* grip v2: top-center pill handle (2×6 dots), 72×32 hit area, ⋯ stays at the right */
+.wgrid>.w:not(.pinned){padding-top:28px}
+body.editing .wgrid>.w{padding-top:0}
+.wgrip{top:0;right:auto;left:50%;transform:translateX(-50%);width:76px;height:32px;border-radius:0 0 14px 14px;background:transparent!important;opacity:1;display:grid;place-items:center;color:var(--text)}
+.wgrip::after{content:"";position:absolute;left:-6px;right:-6px;top:-8px;bottom:-6px}
+.wgrip::before{width:48px;height:18px;border-radius:999px;opacity:1;background:radial-gradient(circle,color-mix(in srgb,var(--text) 70%,transparent) 1.5px,transparent 1.9px) 4px 2px/6.6px 7px repeat-x,radial-gradient(circle,color-mix(in srgb,var(--text) 70%,transparent) 1.5px,transparent 1.9px) 4px 9px/6.6px 7px repeat-x,var(--card2);background-size:6.6px 7px,6.6px 7px,auto;background-repeat:repeat-x,repeat-x,no-repeat;border:1px solid color-mix(in srgb,var(--text) 22%,var(--line));box-shadow:0 1px 3px rgba(0,0,0,.25);transition:background-color .15s,border-color .15s,transform .15s,box-shadow .15s}
+.wgrip:hover::before,.w:hover>.wgrip::before{border-color:var(--snek);box-shadow:0 0 0 3px var(--glow)}
+.wgrip:hover::before{background-color:color-mix(in srgb,var(--snek) 18%,var(--card2))}
+.wgrip:active::before,.w.wlift>.wgrip::before{transform:scale(.94);background-color:color-mix(in srgb,var(--snek) 35%,var(--card2));border-color:var(--snek)}
+.wgrip:active{transform:translateX(-50%)}
+@media(pointer:coarse){.wgrip{color:var(--text)}.wgrip::before{border-color:color-mix(in srgb,var(--snek) 45%,var(--line))}}

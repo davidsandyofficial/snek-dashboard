@@ -33,7 +33,7 @@
   const PRESETS = {
     trader: { name: "Trader", icon: "📈", desc: "Chart, live prices, trades and whale feed first", order: ["chart", "price", "venues", "trades", "wfeed", "liquidity", "volume", "alerts", "stats"], pinned: ["chart"], hidden: ["calc", "links"], size: { price: 6, venues: 6 } },
     holder: { name: "Holder", icon: "💎", desc: "Price, your portfolio, alerts and holder stats", order: ["price", "portfolio", "alerts", "stats", "holders", "chart", "calc", "wtop"], pinned: ["price"], hidden: ["trades", "volume", "liquidity", "venues"], size: {} },
-    watcher: { name: "Wallet watcher", icon: "🔎", desc: "Wallet tracker, your watchlist and whale moves", order: ["wsearch", "watch", "wfeed", "wtop", "price", "holders", "chart"], pinned: ["wsearch"], hidden: ["calc", "venues", "volume", "portfolio"], size: { wsearch: 8, watch: 4 } },
+    watcher: { name: "Wallet watcher", icon: "🔎", desc: "Wallet tracker, your watchlist and whale moves", order: ["wsearch", "whist", "watch", "wfeed", "wtop", "price", "holders", "chart"], pinned: ["wsearch"], hidden: ["calc", "venues", "volume", "portfolio"], size: { wsearch: 8, watch: 4 } },
   };
   function applyPreset(k) {
     const P = PRESETS[k]; if (!P) return; snap();
@@ -112,7 +112,7 @@
     if (w.querySelector(":scope > .wkebab")) return;
     const b = document.createElement("button"); b.type = "button"; b.className = "wkebab"; b.setAttribute("aria-label", "Options for " + w.dataset.title); b.setAttribute("aria-haspopup", "menu"); b.innerHTML = "<span>⋯</span>";
     w.appendChild(b);
-    const g = document.createElement("span"); g.className = "wgrip"; g.setAttribute("aria-hidden", "true"); g.title = "Drag to move · or use ⋯ for Move up/down";
+    const g = document.createElement("span"); g.className = "wgrip"; g.setAttribute("aria-hidden", "true"); g.title = "Drag to move";
     w.appendChild(g);
   }
   let menu = null, menuFor = null;

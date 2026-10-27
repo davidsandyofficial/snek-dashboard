@@ -126,7 +126,7 @@
         if (a) { w.stakeStatus = a.stakeRegistered ? "registered" : "not registered"; w.pool = a.delegation ? poolBech(a.delegation) : null; }
       } catch (e) {}
       onStep && onStep(w);
-      try { const hd = await req(HANDLE + "/holders/" + w.stake); w.handles = hd ? +hd.total_handles || (hd.handles || []).length : 0; w.handleSample = hd ? (hd.handles || []).slice(0, 12) : []; if (hd && hd.manually_set) w.defaultHandle = hd.default_handle; } catch (e) { w.handles = null; }
+      try { const any = await req(HANDLE + "/handles?holder_address=" + w.stake + "&records_per_page=1"); const hd = Array.isArray(any) && !any.length ? { total_handles: 0, handles: [] } : await req(HANDLE + "/holders/" + w.stake); w.handles = hd ? +hd.total_handles || (hd.handles || []).length : 0; w.handleSample = hd ? (hd.handles || []).slice(0, 12) : []; if (hd && hd.manually_set) w.defaultHandle = hd.default_handle; } catch (e) { w.handles = null; }
     }
     if (!w.address && tm) { w.snek = tm.snek; w.ada = tm.ada; w.scope = "snapshot"; }
     w.t = Date.now(); onStep && onStep(w);
@@ -202,6 +202,7 @@
   function renderProfile(w, loading) {
     current = w; $("wProfile").innerHTML = profileHTML(w, loading);
     if (!loading) {
+      if (w.__phSent !== w.t) { w.__phSent = w.t; window.dispatchEvent(new CustomEvent("snek:wallet", { detail: w })); }
       renderPane(w);
       if (w.avatar === undefined) avatarFor(w).then((u) => { w.avatar = u; if (u && current === w) { const a = document.querySelector("#wProfile .wcard .wav"); if (a && !a.querySelector("img")) a.insertAdjacentHTML("beforeend", '<img src="' + esc(u) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">'); } });
       const big = document.querySelector("#wProfile .wbig"); if (big && window.SNEKFX && SNEKFX.countUp && ok(+big.dataset.count) && +big.dataset.count > 0) SNEKFX.countUp(big, +big.dataset.count, (v) => usdc(v));
@@ -600,6 +601,6 @@
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && watch().some((x) => Date.now() - x.last > 300000)) refreshWatch(); });
     const m = location.hash.match(/^#wallet=(.+)$/); if (m) { const q = decodeURIComponent(m[1]); $("wInput").value = q; lookup(q); setTimeout(() => $("wallets").scrollIntoView(), 300); }
   }
-  window.SNEKWALLETS = { lookup, refreshWatch, signals, parse, balanceOf, addrInfo, renderFeed, current: () => current };
+  window.SNEKWALLETS = { lookup, refreshWatch, signals, parse, balanceOf, addrInfo, renderFeed, yoroi, current: () => current };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

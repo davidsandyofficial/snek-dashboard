@@ -30,7 +30,7 @@ Tap **ƒx Indicators** above the chart. Overlays: SMA ×2, EMA ×2 (periods conf
 
 - **Resize with the mouse** (screens at least 900 px wide): drag a card's bottom-right corner, right edge or bottom edge. Width snaps to the 12-column grid (3 = ¼ up to 12 = full) and height moves in 10 px steps (160–1600 px). A dashed outline with a size label such as "8 cols (⅔) × 420px" follows the mouse, and you get an Undo toast afterwards. Double-click a handle, or use ⋯ → Reset size, to reset one card. Presets and Reset clear all custom sizes. On touch tablets a bigger corner handle appears on the card you tapped, and the ⋯ menu still has the width option.
 - **The "Built by @DavidSandy" card is pinned at the top** by default and in every preset. Saved layouts from before (v1) get it pinned once. "Not now" shrinks it to a slim bar instead of hiding it.
-- **Grab the ⠿ grip** in any card header (it isn't shown on pinned cards) to drag straight away with mouse or touch. With a mouse you can also grab the card title. While you drag, every valid drop spot gets a dashed outline, the spot you're over glows, and pinned cards are marked "can't drop here".
+- **Grab the pill-shaped grip** at the top center of any card (it isn't shown on pinned cards) to drag straight away with mouse or touch. With a mouse you can also grab the card title. While you drag, every valid drop spot gets a dashed outline, the spot you're over glows, and pinned cards are marked "can't drop here".
 - **Press and hold any card** (about 0.4 s on touch, 0.3 s with a mouse) on a non-interactive spot such as its title, then drag it to a new place. No edit mode needed. Buttons, inputs, links, tables, lists and the chart canvas are excluded, so scrolling and chart panning work as before. Pinned cards stay put. You get a short vibration where supported, a lifted card, a "Drop here" placeholder and an Undo toast.
 
 Every card is a widget. Tap **▦** in the header (or **Customize layout** at the bottom) to edit:
@@ -87,3 +87,15 @@ The hero and wallet search have animated gradient borders. The header and bars u
 ## Updates
 
 `sw.js` skips waiting and claims open pages, and it is checked for updates whenever the tab becomes visible and every 15 minutes. When a new version takes over, a "Reload" bar appears. The page also reloads by itself when the tab goes to the background, or after a minute of idle time (it never does this mid-drag, while the layout editor is open, or while you're typing).
+
+## Portfolio history (Wallets tab)
+
+A draggable "Portfolio history" widget shows the wallet you looked up, or one you track, using real data only:
+- **Transactions** come from Yoroi's public backend. They are paged backwards in segments between chain anchors (1, 7, 30, 90 and 365 days back, taken from the 30-min snapshot) and finally from the address's first transaction. One load reads up to 40 pages (2,000 txs), and "Load further back" continues from there. The covered window only ever includes complete segments.
+- **Balances** (SNEK and ADA) are rebuilt from today's on-chain balance by undoing each transaction's change. They cover this address only. Other tokens and NFTs are not included.
+- **Prices** are daily closes in UTC:
+  - SNEK from `assets/history/1D` (on-chain DEX, Gate.io before ~180 days, back to Dec 27, 2023).
+  - ADA/USD from Kraken's public OHLC (last ~720 days). Older days use the same-day SNEK USD ÷ SNEK ADA ratio.
+  - Today uses live prices.
+- **Chart and stats:** a USD/ADA toggle, 7D/30D/90D/1Y/All ranges, a SNEK balance line, and tooltips. Also: change in value over the range (includes transfers), price-driven P/L (held balance × daily price moves) and the ATH portfolio value.
+- **No interpolation:** days without prices stay empty and are listed as gaps, and the covered date range is always shown.
