@@ -134,39 +134,113 @@
   }
   async function snekOf(x) { if (!x.address) throw new Error("no address"); return (await balanceOf(x.address)).snek; }
 
+  // ---------- notes, nicknames, tags (this browser only) ----------
+  const NOTES_KEY = "snek-wnotes";
+  const notesAll = () => store.get(NOTES_KEY, {});
+  const noteOf = (id) => (id && notesAll()[id]) || null;
+  function setNote(id, v) { const n = notesAll(); if (!v.nick && !v.note && !(v.tags || []).length) delete n[id]; else n[id] = v; store.set(NOTES_KEY, n); }
+  const hue = (s) => { let h = 0; for (const c of String(s || "snek")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 360; };
+  const initials = (t) => { const s = String(t).replace(/^\$/, "").replace(/[^A-Za-z0-9 ]/g, " ").trim(); const p = s.split(/\s+/); return ((p[0] || "?")[0] + (p[1] ? p[1][0] : (p[0] || "").slice(1, 2))).toUpperCase(); };
+  function avatarHTML(id, name, img, size) {
+    const h = hue(id), st = 'style="--ah:' + h + ";--ah2:" + ((h + 70) % 360) + ";width:" + size + "px;height:" + size + 'px"';
+    return '<span class="wav" ' + st + '><span class="wav-i">' + esc(initials(name)) + "</span>" + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : "") + "</span>";
+  }
+  const avatarCache = {};
+  async function avatarFor(w) {
+    const h = w.searchedHandle || w.defaultHandle || (w.handles === 1 && w.handleSample && w.handleSample[0]); if (!h) return null;
+    if (h in avatarCache) return avatarCache[h];
+    try { const d = await fetch(HANDLE + "/handles/" + encodeURIComponent(h)).then((r) => (r.ok ? r.json() : null)); const cid = d && d.image && String(d.image).replace(/^ipfs:\/\//, ""); avatarCache[h] = cid ? "https://ipfs.blockfrost.dev/ipfs/" + cid : null; } catch (e) { avatarCache[h] = null; }
+    return avatarCache[h];
+  }
+
   // ---------- profile card ----------
   let current = null;
+  const idOf = (w) => w.address || w.stake;
+  const displayName = (w) => { const n = noteOf(idOf(w)); return n && n.nick ? n.nick : nameOf(w).text; };
   function profileHTML(w, loading) {
-    const nm = nameOf(w), p = price(), s = signals(w), id = w.address || w.stake, watched = watch().some((x) => x.id === id);
-    const stat = (l, v, sub) => '<div class="kpi"><div class="l">' + l + '</div><div class="v">' + v + "</div>" + (sub ? '<div class="muted small">' + sub + "</div>" : "") + "</div>";
-    const staking = w.script && !w.stake ? "Contract" : !w.stake ? "No stake key" : w.stakeStatus === "registered" ? (w.pool ? "Delegated" : "Registered, not delegated") : w.stakeStatus ? "Not staking" : "…";
-    const noBal = !w.address && !ok(w.snek);
-    const pend = '<span class="skel w80">&nbsp;</span>';
-    return '<div class="whead"><div><div class="wname">' + esc(nm.text) + (nm.kind === "label" ? ' <span class="vtag dex">label</span>' : "") + (exLike(w) ? ' <span class="vtag ex">exchange-like</span>' : "") + "</div>" +
-      '<div class="mono small muted">' + esc(short(w.address || id)) + ' <button class="linkbtn" data-copy="' + esc(w.address || id) + '">copy</button></div>' + (w.rank ? '<div class="small muted">Top holder #' + w.rank + "</div>" : "") + "</div>" +
-      '<button class="btn ' + (watched ? "" : "primary") + '" id="wTrackBtn"' + (loading ? " disabled" : "") + ">" + (watched ? "✓ Tracking" : "★ Track") + "</button></div>" +
-      '<div class="kpis wk">' +
-      stat("SNEK", ok(w.snek) ? n0(w.snek) : noBal ? "–" : pend, ok(w.snek) ? usdc(p ? w.snek * p : null) + " · " + (w.snek / circ() * 100).toFixed(3) + "% of supply" : "") +
-      stat("ADA", ok(w.ada) ? n0(w.ada) : noBal ? "–" : pend, "") +
-      stat("Staking", staking, w.stakeStatus === "not registered" ? "stake key unregistered" : w.pool ? '<a class="mono" href="https://cardanoscan.io/pool/' + encodeURIComponent(w.pool) + '" target="_blank" rel="noopener">' + esc(short(w.pool)) + "</a>" : "") +
-      stat("ADA Handles", w.stake ? (ok(w.handles) ? n0(w.handles) : loading ? pend : "–") : "0", "") +
-      (ok(w.tx24) ? stat("Txs, last 24 h", n0(w.tx24) + (w.tx24Capped ? "+" : ""), "from the 30-min snapshot") : "") +
+    const nm = nameOf(w), p = price(), id = idOf(w), watched = watch().some((x) => x.id === id), nt = noteOf(id) || {}, dn = displayName(w);
+    const noBal = !w.address && !ok(w.snek), pend = '<span class="skel w80">&nbsp;</span>', h = hue(id);
+    const usdV = ok(w.snek) && p ? w.snek * p : null;
+    return '<div class="wcard" style="--h1:' + h + ";--h2:" + ((h + 70) % 360) + '">' +
+      '<div class="wcard-top">' + avatarHTML(id, dn, w.avatar, 56) +
+      '<div class="grow wcard-id"><div class="wname">' + esc(dn) + (nt.nick && nm.kind !== "addr" ? ' <span class="muted small">' + esc(nm.text) + "</span>" : "") + "</div>" +
+      '<div class="wbadges">' + (nm.kind === "label" ? '<span class="vtag dex">label</span>' : "") + (exLike(w) ? '<span class="vtag ex">exchange-like</span>' : "") + (w.rank ? '<span class="vtag">Top #' + w.rank + "</span>" : "") + (nt.tags || []).map((t) => '<span class="wtag">#' + esc(t) + "</span>").join("") + "</div>" +
+      '<div class="mono small muted">' + esc(short(w.address || id)) + ' <button class="linkbtn" data-copy="' + esc(w.address || id) + '">copy</button></div></div>' +
+      '<button class="btn wtrack ' + (watched ? "" : "primary") + '" id="wTrackBtn"' + (loading ? " disabled" : "") + ">" + (watched ? "✓ Tracking" : "★ Track") + "</button></div>" +
+      '<div class="wcard-bal"><div class="wbig" data-count="' + (usdV || "") + '">' + (ok(w.snek) ? usdc(usdV) : noBal ? "–" : pend) + '</div><div class="wsub">' + (ok(w.snek) ? n0(w.snek) + " SNEK · " + (w.snek / circ() * 100).toFixed(3) + "% of supply" : noBal ? "Balance needs an address" : "") + (ok(w.ada) ? " · " + cmp(w.ada) + " ADA" : "") + "</div></div>" +
+      (nt.note ? '<p class="wnote">📝 ' + esc(nt.note) + "</p>" : "") +
+      (loading ? "" : '<div class="wcard-acts"><button class="chipbtn" data-act="notes">✎ Nickname &amp; notes</button><button class="chipbtn" data-act="cmpopen">⇆ Compare</button><button class="chipbtn" data-act="share">↗ Share</button></div>') +
       "</div>" +
-      (noBal && !loading ? '<p class="small warn">Balances need an address: paste an <span class="mono">addr1…</span> or a $handle (a stake key alone can’t be summed with the free APIs).</p>' : w.scope === "address" && !loading ? '<p class="muted small">Balances are for this address. Staking and handles cover the whole stake key.</p>' : "") +
+      (loading ? '<p class="muted small mt">Loading on-chain data…</p>' :
+        '<form id="wNoteForm" class="wnoteform" hidden><label>Nickname<input id="wNick" maxlength="40" value="' + esc(nt.nick || "") + '" placeholder="e.g. Exchange hot wallet"></label><label>Tags (comma separated)<input id="wTags" maxlength="80" value="' + esc((nt.tags || []).join(", ")) + '" placeholder="whale, exchange, friend"></label><label>Note<textarea id="wNote" maxlength="280" rows="2" placeholder="Anything you want to remember">' + esc(nt.note || "") + '</textarea></label><div class="row gap"><button class="btn primary">Save</button><button class="btn" type="button" data-act="notesclose">Cancel</button></div><p class="muted small">Saved only in this browser.</p></form>' +
+        '<div id="wCmpBox" hidden><form class="wsearch mt" id="wCmpForm"><input id="wCmpIn" class="grow" placeholder="Compare with addr1…, stake1… or $handle" autocomplete="off" spellcheck="false" autocapitalize="off"><button class="btn primary">Compare</button></form>' +
+        (watch().filter((x) => x.id !== id).length ? '<div class="chips wchips">' + watch().filter((x) => x.id !== id).slice(0, 6).map((x) => '<button type="button" data-cmp="' + esc(x.id) + '">' + esc((noteOf(x.id) || {}).nick || x.name) + "</button>").join("") + "</div>" : "") + '<div id="wCmp"></div></div>' +
+        '<div class="seg wtabs" role="tablist" aria-label="Wallet sections">' + [["overview", "Overview"], ["holdings", "Holdings"], ["activity", "Activity"], ["staking", "Staking"]].map((t) => '<button type="button" role="tab" data-wt="' + t[0] + '" class="' + ((w.tab || "overview") === t[0] ? "on" : "") + '" aria-selected="' + ((w.tab || "overview") === t[0]) + '">' + t[1] + "</button>").join("") + "</div>" +
+        '<div id="wPane" class="wpane"></div>');
+  }
+  function overviewHTML(w) {
+    const s = signals(w), id = idOf(w);
+    const stat = (l, v, sub) => '<div class="kpi"><div class="l">' + l + '</div><div class="v">' + v + "</div>" + (sub ? '<div class="muted small">' + sub + "</div>" : "") + "</div>";
+    const staking = w.script && !w.stake ? "Contract" : !w.stake ? "No stake key" : w.stakeStatus === "registered" ? (w.pool ? "Delegated" : "Registered, not delegated") : w.stakeStatus ? "Not staking" : "–";
+    return '<div class="kpis wk">' + stat("Staking", staking, w.stakeStatus === "not registered" ? "stake key unregistered" : "") + stat("ADA Handles", w.stake ? (ok(w.handles) ? n0(w.handles) : "–") : "0") +
+      (ok(w.tx24) ? stat("Txs, last 24 h", n0(w.tx24) + (w.tx24Capped ? "+" : ""), "30-min snapshot") : "") + stat("Signals", s.contract ? "Contract" : s.count + " of 4", exLike(w) ? "exchange-like" : "") + "</div>" +
+      (w.scope === "address" ? '<p class="muted small">Balances are for this address. Staking and handles cover the whole stake key.</p>' : !w.address ? '<p class="small warn">Balances need an address: paste an <span class="mono">addr1…</span> or a $handle (a stake key alone can’t be summed with the free APIs).</p>' : "") +
       (w.handleSample && w.handleSample.length ? '<div class="hchips">' + w.handleSample.map((h) => '<span class="hchip">$' + esc(h) + "</span>").join("") + (w.handles > w.handleSample.length ? '<span class="muted small">+' + n0(w.handles - w.handleSample.length) + " more</span>" : "") + "</div>" : "") +
       '<ul class="signals">' + s.list.map((x) => '<li class="' + (x[1] ? "on" : "") + '">' + (x[1] ? "●" : "○") + " " + esc(x[0]) + "</li>").join("") + "</ul>" +
-      (loading ? "" : '<div class="row gap wrap wacts">' + (w.address ? '<button class="btn" data-act="activity">⏱ Activity &amp; PnL</button>' : "") + '<button class="btn" data-act="cmpopen">⇆ Compare</button><button class="btn" data-act="share">↗ Share</button></div>' +
-        '<div id="wCmpBox" hidden><form class="wsearch mt" id="wCmpForm"><input id="wCmpIn" class="grow" placeholder="Compare with addr1…, stake1… or $handle" list="wCmpList" autocomplete="off" spellcheck="false" autocapitalize="off"><datalist id="wCmpList">' + watch().filter((x) => x.id !== id).map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("") + '</datalist><button class="btn primary">Compare</button></form>' +
-        (watch().filter((x) => x.id !== id).length ? '<div class="chips wchips">' + watch().filter((x) => x.id !== id).slice(0, 6).map((x) => '<button type="button" data-cmp="' + esc(x.id) + '">' + esc(x.name) + "</button>").join("") + "</div>" : "") + '<div id="wCmp"></div></div>' +
-        '<div id="wHold" class="wsec"></div><div id="wAct" class="wsec"></div>') +
-      '<p class="small"><a href="https://cardanoscan.io/' + (w.stake ? "stakekey/" : "address/") + encodeURIComponent(id) + '" target="_blank" rel="noopener">Open on Cardanoscan</a> · <a href="https://pool.pm/' + encodeURIComponent(id) + '" target="_blank" rel="noopener">pool.pm</a>' + (loading ? ' · <span class="muted">loading on-chain data…</span>' : w.t ? ' · <span class="muted">checked ' + tz(w.t) + "</span>" : "") + "</p>";
+      '<p class="small"><a href="https://cardanoscan.io/' + (w.stake ? "stakekey/" : "address/") + encodeURIComponent(id) + '" target="_blank" rel="noopener">Open on Cardanoscan</a> · <a href="https://pool.pm/' + encodeURIComponent(id) + '" target="_blank" rel="noopener">pool.pm</a>' + (w.t ? ' · <span class="muted">checked ' + tz(w.t) + "</span>" : "") + "</p>";
   }
-  function renderProfile(w, loading) { current = w; $("wProfile").innerHTML = profileHTML(w, loading); }
+  function renderPane(w) {
+    const el = $("wPane"); if (!el || current !== w) return;
+    const t = w.tab || "overview";
+    document.querySelectorAll(".wtabs [data-wt]").forEach((b) => { const on = b.dataset.wt === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+    if (t === "overview") el.innerHTML = overviewHTML(w);
+    else if (t === "holdings") { el.innerHTML = '<div id="wHold"></div>'; if (!w.address) { $("wHold").innerHTML = '<p class="muted small">Holdings need an address (addr1… or $handle).</p>'; } else renderHoldings(w); }
+    else if (t === "activity") { el.innerHTML = '<div id="wAct"></div>'; if (!w.address) $("wAct").innerHTML = '<p class="muted small">Activity needs an address (addr1… or $handle).</p>'; else if (w.act && w.act.rows) renderActivity(w); else loadActivity(w); }
+    else if (t === "staking") { el.innerHTML = '<div id="wStake"></div>'; loadStaking(w); }
+    el.classList.remove("in"); void el.offsetWidth; el.classList.add("in");
+  }
+  function renderProfile(w, loading) {
+    current = w; $("wProfile").innerHTML = profileHTML(w, loading);
+    if (!loading) {
+      renderPane(w);
+      if (w.avatar === undefined) avatarFor(w).then((u) => { w.avatar = u; if (u && current === w) { const a = document.querySelector("#wProfile .wcard .wav"); if (a && !a.querySelector("img")) a.insertAdjacentHTML("beforeend", '<img src="' + esc(u) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">'); } });
+      const big = document.querySelector("#wProfile .wbig"); if (big && window.SNEKFX && SNEKFX.countUp && ok(+big.dataset.count) && +big.dataset.count > 0) SNEKFX.countUp(big, +big.dataset.count, (v) => usdc(v));
+    }
+  }
+
+  // ---------- staking panel ----------
+  const stakeCache = {};
+  async function loadStaking(w) {
+    const el = $("wStake"); if (!el) return;
+    if (!w.stake) { el.innerHTML = '<div class="wempty small"><b>No stake key</b><span class="muted">' + (w.script ? "This is a smart-contract address, so it can’t stake." : "Enterprise or legacy addresses can’t delegate to a pool.") + "</span></div>"; return; }
+    el.innerHTML = '<div class="skel h120"></div>';
+    try {
+      const hx = stakeHex(w.stake);
+      let c = stakeCache[hx];
+      if (!c || Date.now() - c.t > 600000) {
+        const st = await yoroi("/account/state", { addresses: [hx] }), rh = await yoroi("/account/rewardHistory", { addresses: [hx] });
+        const a = (st && st[hx]) || {}, hist = ((rh && rh[hx]) || []).map((r) => ({ epoch: r.epoch, ada: +r.reward / 1e6, pool: r.poolHash }));
+        let pool = null; const ph = a.delegation || (hist.length ? hist[hist.length - 1].pool : null);
+        if (ph) { try { const pi = await yoroi("/pool/info", { poolIds: [ph] }); const hs = pi && pi[ph] && pi[ph].history; const reg = hs && hs.filter((x) => x.payload && x.payload.poolParams).pop(); if (reg) { const pp = reg.payload.poolParams; pool = { hex: ph, margin: +pp.margin, cost: +pp.cost / 1e6, pledge: +pp.pledge / 1e6, meta: pp.poolMetadata && pp.poolMetadata.url }; } else pool = { hex: ph }; } catch (e) { pool = { hex: ph }; } }
+        c = stakeCache[hx] = { t: Date.now(), a, hist, pool };
+      }
+      if (current !== w) return;
+      const { a, hist, pool } = c, delegated = a.stakeRegistered && a.delegation, tot = hist.reduce((s, r) => s + r.ada, 0), last = hist.slice(-12), mx = Math.max(1e-9, ...last.map((r) => r.ada));
+      const pb = pool ? poolBech(pool.hex) : null, ticker = w.poolTicker && delegated ? w.poolTicker : null;
+      const bars = last.length ? '<div class="rbars" role="img" aria-label="Rewards per epoch">' + last.map((r) => '<div class="rbar" title="Epoch ' + r.epoch + ": " + r.ada.toFixed(2) + ' ADA"><i style="height:' + Math.max(3, (r.ada / mx) * 100) + '%"></i><span>' + r.epoch + "</span></div>").join("") + "</div>" : "";
+      el.innerHTML = '<div class="stake-head"><span class="spill ' + (delegated ? "on" : "off") + '">' + (delegated ? "● Delegating" : a.stakeRegistered ? "○ Registered, not delegated" : "○ Not staking") + "</span>" +
+        (pb ? '<a class="mono small" href="https://cardanoscan.io/pool/' + encodeURIComponent(pb) + '" target="_blank" rel="noopener">' + (ticker ? "[" + esc(ticker) + "] " : "") + esc(short(pb)) + "</a>" : "") + "</div>" +
+        (pool && ok(pool.margin) ? '<div class="kpis wk">' + '<div class="kpi"><div class="l">Pool margin</div><div class="v">' + (pool.margin * 100).toFixed(2) + '%</div></div><div class="kpi"><div class="l">Fixed cost</div><div class="v">' + n0(pool.cost) + ' ₳</div></div><div class="kpi"><div class="l">Pledge</div><div class="v">' + cmp(pool.pledge) + ' ₳</div></div><div class="kpi"><div class="l">Lifetime rewards</div><div class="v up">' + cmp(tot) + " ₳</div></div></div>" : "") +
+        (last.length ? '<h3 class="mt">Rewards, last ' + last.length + " epochs</h3>" + bars + '<p class="muted small">Last reward: epoch ' + last[last.length - 1].epoch + " · " + last[last.length - 1].ada.toFixed(2) + " ADA" + (!delegated ? " · " + (pb ? "earned while delegated to the pool above" : "") : "") + "</p>" : '<p class="muted small">No staking rewards on record for this stake key.</p>') +
+        (!delegated && ok(w.ada) && w.ada > 100 ? '<p class="small warn">' + cmp(w.ada) + " ADA here isn’t earning staking rewards.</p>" : "") +
+        '<p class="muted small">From Yoroi’s public backend (account state, reward history, pool registration). Epochs are ~5 days.</p>';
+    } catch (e) { el.innerHTML = '<p class="small warn">Staking data unavailable right now: ' + esc(e.message) + "</p>"; }
+  }
   async function lookup(q) {
     const p = parse(q); const el = $("wProfile");
     if (!p) { el.innerHTML = '<p class="small warn">That doesn’t look like an addr1…, stake1… or $handle.</p>'; return; }
     el.innerHTML = '<div class="skel h120"></div>';
-    try { const w = await load(p, (x) => renderProfile(x, true)); w.query = q.trim(); renderProfile(w, false); renderHoldings(w); }
+    try { const w = await load(p, (x) => renderProfile(x, true)); w.query = q.trim(); renderProfile(w, false); }
     catch (e) { el.innerHTML = '<p class="small warn">' + esc(e.message || "Lookup failed") + ". The free APIs can be busy, so try again in a moment.</p>"; }
   }
 
@@ -184,8 +258,16 @@
     }
     const o = {}; ids.forEach((i) => (o[i] = regCache[i] || null)); return o;
   }
+  // DexHunter's public token list: only ask for prices of tokens it actually trades (avoids 500s for unlisted ones)
+  let dhSet = null;
+  function dhTokens() {
+    if (dhSet) return dhSet;
+    try { const c = JSON.parse(sessionStorage.getItem("snek-dhtok") || "null"); if (c && Date.now() - c.t < 3600000) return (dhSet = Promise.resolve(new Set(c.ids))); } catch (e) {}
+    return (dhSet = fetch("https://api-us.dexhunterv3.app/swap/tokens").then((r) => (r.ok ? r.json() : [])).then((d) => { const ids = (d || []).map((t) => t.token_id); try { sessionStorage.setItem("snek-dhtok", JSON.stringify({ t: Date.now(), ids })); } catch (e) {} return new Set(ids); }).catch(() => { dhSet = null; return new Set(); }));
+  }
   async function adaPrice(unit) {
     const c = pxCache[unit]; if (c && Date.now() - c.t < 300000) return c.v;
+    if (!(await dhTokens()).has(unit)) { pxCache[unit] = { t: Date.now(), v: null }; return null; }
     let v = null; try { const r = await fetch(DHP + unit, { signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined }).then((x) => (x.ok ? x.json() : null)); v = r && ok(+r.price_ba) && +r.price_ba > 0 ? +r.price_ba : null; } catch (e) {}
     pxCache[unit] = { t: Date.now(), v }; return v;
   }
@@ -205,7 +287,14 @@
     rows.sort((a, b) => (b.usd || 0) - (a.usd || 0));
     const total = rows.reduce((s, r) => s + (r.usd || 0), 0);
     if (current !== w) return;
+    const COLS = ["var(--snek)", "var(--cyan)", "var(--purple)", "var(--yellow)", "var(--blue)", "var(--red)", "var(--muted)"];
+    const priced = rows.filter((r) => r.usd > 0), top = priced.slice(0, 6), rest = priced.slice(6).reduce((a, r) => a + r.usd, 0);
+    const segs = top.map((r, i) => ({ name: r.name, usd: r.usd, c: COLS[i] })).concat(rest > 0 ? [{ name: "Other", usd: rest, c: COLS[6] }] : []);
+    let acc = 0; const C = 2 * Math.PI * 42;
+    const donut = total ? '<div class="donutwrap"><svg class="donut" viewBox="0 0 100 100" role="img" aria-label="Holdings by value">' + '<circle cx="50" cy="50" r="42" class="dbg"/>' + segs.map((g, i) => { const len = (g.usd / total) * C, off = -acc; acc += len; return '<circle cx="50" cy="50" r="42" class="dseg" style="stroke:' + g.c + ";stroke-dasharray:" + Math.max(0, len - 0.6).toFixed(2) + " " + C.toFixed(2) + ";stroke-dashoffset:" + off.toFixed(2) + ";animation-delay:" + i * 70 + 'ms"><title>' + esc(g.name) + " " + usdc(g.usd) + "</title></circle>"; }).join("") + '</svg><div class="dcenter"><b>' + usdc(total) + '</b><span class="muted small">priced</span></div></div>' +
+      '<ul class="dlegend">' + segs.map((g) => '<li><i style="background:' + g.c + '"></i>' + esc(g.name) + '<span class="muted">' + ((g.usd / total) * 100).toFixed(1) + "%</span></li>").join("") + "</ul>" : "";
     el.innerHTML = '<div class="row between wrap"><h3>Holdings</h3><span class="small">' + (total ? "≈ " + usdc(total) + ' <span class="muted">priced tokens</span>' : "") + "</span></div>" +
+      (donut ? '<div class="hdonut">' + donut + "</div>" : "") +
       '<div class="table-wrap"><table class="htable"><tr><th>Token</th><th>Amount</th><th>Value</th></tr>' + rows.slice(0, 14).map((r) => "<tr><td><b>" + esc(r.name) + "</b>" + (r.sub ? '<div class="muted small">' + esc(r.sub) + "</div>" : "") + "</td><td>" + cmp(r.amt) + "</td><td>" + (ok(r.usd) ? (r.usd > 0 && r.usd < 0.01 ? "<$0.01" : usdc(r.usd)) : '<span class="muted">unavailable</span>') + "</td></tr>").join("") + "</table></div>" +
       '<p class="muted small">' + (rows.length > 14 ? rows.length - 14 + " more registered tokens · " : "") + (handles ? n0(handles) + " ADA Handles · " : "") + (other > 0 ? n0(other) + " NFTs or unregistered tokens · " : "") + "Names from the Cardano Token Registry, prices from DexHunter (ADA) × ADA/USD. This address only.</p>";
   }
@@ -270,19 +359,54 @@
     const avgIn = qIn ? cIn / qIn : null, p = price();
     st.pnl = { qIn, cIn, qOut, vOut, avgIn, avgOut: qOut ? vOut / qOut : null, realized: avgIn && qOut ? (vOut / qOut - avgIn) * Math.min(qOut, qIn) : null, unreal: avgIn && p ? (qIn - Math.min(qOut, qIn)) * (p - avgIn) : null, missing: st.rows.filter((r) => r.snek && !ok(r.px)).length };
   }
+  function dayLabel(t) {
+    const fmt = (d) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    const d = fmt(new Date(t)), today = fmt(new Date()), yest = fmt(new Date(Date.now() - 86400000));
+    return d === today ? "Today" : d === yest ? "Yesterday" : new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", weekday: "short", month: "short", day: "numeric" }).format(new Date(t));
+  }
+  const hm = (t) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", hour: "numeric", minute: "2-digit" }).format(new Date(t));
+  // SNEK balance over the loaded window, rebuilt backwards from today's balance
+  function balanceSeries(w) {
+    const rows = w.act.rows; if (!rows.length || !ok(w.snek)) return [];
+    let bal = w.snek, px = price(); const pts = [{ t: Date.now(), bal, px }];
+    for (const r of rows) { pts.push({ t: r.time, bal, px: ok(r.px) ? r.px : null }); bal -= r.snek; pts.push({ t: r.time - 1000, bal, px: ok(r.px) ? r.px : null }); }
+    pts.reverse(); let lastPx = null; pts.forEach((p) => { if (ok(p.px)) lastPx = p.px; else p.px = lastPx; });
+    const seen = new Set(); return pts.filter((p) => { const k = Math.floor(p.t / 1000); if (seen.has(k)) return false; seen.add(k); return true; }).map((p) => ({ time: Math.floor(p.t / 1000), bal: Math.max(0, p.bal), usd: ok(p.px) ? Math.max(0, p.bal) * p.px : null }));
+  }
+  let valChart = null;
+  function drawValueChart(w) {
+    const el = $("wValChart"); if (!el || !window.LightweightCharts) return;
+    if (valChart) { try { valChart.remove(); } catch (e) {} valChart = null; }
+    const pts = balanceSeries(w); if (pts.length < 2) { el.innerHTML = '<p class="muted small">Not enough SNEK movement in the loaded window to draw a chart.</p>'; el.style.height = "auto"; return; }
+    const LW = window.LightweightCharts, cs = getComputedStyle(document.documentElement), col = (v) => cs.getPropertyValue(v).trim();
+    valChart = LW.createChart(el, { autoSize: true, layout: { background: { type: "solid", color: "transparent" }, textColor: col("--muted"), attributionLogo: false, fontFamily: "Inter, system-ui, sans-serif" }, grid: { vertLines: { visible: false }, horzLines: { color: col("--line") } }, rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, timeVisible: true }, handleScroll: false, handleScale: false, crosshair: { mode: 0 }, localization: { timeFormatter: (t) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(t * 1000)) + " CT" } });
+    const usd = w.act.view === "usd", c = col("--snek");
+    const s = valChart.addSeries(LW.AreaSeries, { lineColor: c, topColor: c + "66", bottomColor: c + "00", lineWidth: 2, lineType: 1, priceLineVisible: false, priceFormat: usd ? { type: "custom", formatter: (v) => usdc(v) } : { type: "custom", formatter: (v) => cmp(v) } });
+    s.setData(pts.filter((p) => (usd ? ok(p.usd) : true)).map((p) => ({ time: p.time, value: usd ? p.usd : p.bal })));
+    valChart.timeScale().fitContent();
+  }
   function renderActivity(w) {
     const el = $("wAct"), st = w.act; if (!el || !st) return;
-    const rows = st.rows, P = st.pnl || {}, showN = st.show || 15;
-    const since = st.from ? "since " + tz(st.from) : rows.length ? "since " + tz(rows[rows.length - 1].time) : "";
-    const net = rows.reduce((s, r) => s + r.snek, 0), sIn = rows.filter((r) => r.snek > 0).reduce((s, r) => s + r.snek, 0), sOut = -rows.filter((r) => r.snek < 0).reduce((s, r) => s + r.snek, 0);
+    const rows = st.rows, P = st.pnl || {}, showN = st.show || 20;
+    const since = st.from ? tz(st.from) : rows.length ? tz(rows[rows.length - 1].time) : "";
+    const sIn = rows.filter((r) => r.snek > 0).reduce((s, r) => s + r.snek, 0), sOut = -rows.filter((r) => r.snek < 0).reduce((s, r) => s + r.snek, 0), net = sIn - sOut;
+    const pn = (P.realized || 0) + (P.unreal || 0), hasP = ok(P.realized) || ok(P.unreal);
     const k = (l, v, cls) => '<div class="kpi"><div class="l">' + l + '</div><div class="v ' + (cls || "") + '">' + v + "</div></div>";
-    el.innerHTML = '<div class="row between wrap"><h3>Activity</h3><span class="muted small">' + n0(rows.length) + " txs " + esc(since) + (st.capped ? " · more available" : "") + "</span></div>" +
-      '<div class="kpis wk">' + k("SNEK in", "+" + cmp(sIn), "up") + k("SNEK out", "−" + cmp(sOut), "down") + k("Net SNEK", signed(net), net > 0 ? "up" : net < 0 ? "down" : "") +
-      k("Avg in price", ok(P.avgIn) ? "$" + Number(P.avgIn.toPrecision(3)) : "–") + k("PnL estimate", ok(P.realized) || ok(P.unreal) ? '<span class="' + ((P.realized || 0) + (P.unreal || 0) >= 0 ? "up" : "down") + '">' + ((P.realized || 0) + (P.unreal || 0) >= 0 ? "+" : "−") + usdc(Math.abs((P.realized || 0) + (P.unreal || 0))) + "</span>" : "–") + "</div>" +
-      '<p class="muted small">PnL estimate covers only the transactions loaded here: SNEK received is valued at the hourly USD close when it arrived, SNEK sent at the close when it left' + (ok(P.realized) ? " (realized " + (P.realized >= 0 ? "+" : "−") + usdc(Math.abs(P.realized)) + ", unrealized " + (P.unreal >= 0 ? "+" : "−") + usdc(Math.abs(P.unreal || 0)) + ")" : "") + ". Transfers between your own wallets count as in/out. Not financial or tax advice." + (P.missing ? " " + P.missing + " txs had no candle to price them." : "") + "</p>" +
-      '<div class="wtx">' + rows.slice(0, showN).map((r) => '<a class="wtxr" href="https://cardanoscan.io/transaction/' + r.hash + '" target="_blank" rel="noopener"><span class="wk ' + (r.snek > 0 ? "up" : r.snek < 0 ? "down" : "muted") + '">' + esc(r.kind) + (r.ok ? "" : " ⚠") + '</span><span class="wt muted small">' + tz(r.time) + '</span><span class="wv">' + (r.snek ? '<b class="' + (r.snek > 0 ? "up" : "down") + '">' + signed(r.snek) + " SNEK</b>" : "") + '<span class="muted small">' + (r.ada >= 0 ? "+" : "−") + cmp(Math.abs(r.ada)) + " ADA" + (ok(r.px) && r.snek ? " · ≈" + usdc(Math.abs(r.snek * r.px)) : "") + "</span></span></a>").join("") + "</div>" +
-      '<div class="row gap wrap mt">' + (rows.length > showN ? '<button class="btn" data-act="actmore">Show more</button>' : "") + (st.capped ? '<button class="btn" data-act="actnext">Load newer txs</button>' : "") + '<button class="btn" data-act="csv">⬇ CSV</button></div>' +
-      '<p class="muted small">From Yoroi’s public backend · this address only · times CT.</p>';
+    let html = '<div class="row between wrap"><h3>Activity</h3><span class="muted small">' + n0(rows.length) + " txs since " + esc(since) + (st.capped ? " · more available" : "") + "</span></div>" +
+      '<div class="kpis wk">' + k("SNEK in", "+" + cmp(sIn), "up") + k("SNEK out", "−" + cmp(sOut), "down") + k("Net SNEK", signed(net), net > 0 ? "up" : net < 0 ? "down" : "") + k("Avg in price", ok(P.avgIn) ? "$" + Number(P.avgIn.toPrecision(3)) : "–") + k("PnL estimate", hasP ? (pn >= 0 ? "+" : "−") + usdc(Math.abs(pn)) : "–", hasP ? (pn >= 0 ? "up" : "down") : "") + "</div>" +
+      '<div class="row between wrap mt"><h3>Balance over this window</h3><div class="seg sm" role="group" aria-label="Chart units"><button type="button" data-act="view-snek" class="' + (st.view !== "usd" ? "on" : "") + '">SNEK</button><button type="button" data-act="view-usd" class="' + (st.view === "usd" ? "on" : "") + '">USD</button></div></div><div id="wValChart" class="wvalchart"></div>' +
+      '<h3 class="mt">Timeline</h3>';
+    if (!rows.length) html += '<div class="wempty small"><img src="assets/brand/snek-face-love.webp" alt="" width="64" height="44" loading="lazy"><span>No transactions in this window.</span></div>';
+    let lastDay = null; html += '<ol class="tline">';
+    rows.slice(0, showN).forEach((r) => {
+      const d = dayLabel(r.time); if (d !== lastDay) { html += '<li class="tday">' + esc(d) + "</li>"; lastDay = d; }
+      const cls = r.snek > 0 ? "in" : r.snek < 0 ? "out" : "ada";
+      html += '<li class="titem ' + cls + '"><a href="https://cardanoscan.io/transaction/' + r.hash + '" target="_blank" rel="noopener"><span class="tdot"></span><span class="tmain"><b>' + esc(r.kind) + (r.ok ? "" : " ⚠ failed") + '</b><span class="muted small">' + hm(r.time) + (r.other ? " · +" + r.other + " other token" + (r.other > 1 ? "s" : "") : "") + '</span></span><span class="tval">' + (r.snek ? '<b class="' + (r.snek > 0 ? "up" : "down") + '">' + signed(r.snek) + " SNEK</b>" : "") + '<span class="muted small">' + (r.ada >= 0 ? "+" : "−") + cmp(Math.abs(r.ada)) + " ADA" + (ok(r.px) && r.snek ? " · ≈" + usdc(Math.abs(r.snek * r.px)) : "") + "</span></span></a></li>";
+    });
+    html += "</ol>" + '<div class="row gap wrap mt">' + (rows.length > showN ? '<button class="btn" data-act="actmore">Show more</button>' : "") + (st.capped ? '<button class="btn" data-act="actnext">Load newer txs</button>' : "") + (rows.length ? '<button class="btn" data-act="csv">⬇ CSV</button>' : "") + "</div>" +
+      '<p class="muted small">PnL estimate covers only these transactions: SNEK in is valued at the hourly USD close when it arrived, SNEK out when it left' + (ok(P.realized) ? " (realized " + (P.realized >= 0 ? "+" : "−") + usdc(Math.abs(P.realized)) + ", unrealized " + ((P.unreal || 0) >= 0 ? "+" : "−") + usdc(Math.abs(P.unreal || 0)) + ")" : "") + '. Transfers between your own wallets count as in/out. Not financial or tax advice. From Yoroi’s public backend · this address only · times CT.</p>';
+    el.innerHTML = html;
+    requestAnimationFrame(() => drawValueChart(w));
   }
   function csv(w) {
     const st = w.act; if (!st || !st.rows.length) return;
@@ -324,43 +448,55 @@
   const LOG_KEY = "snek-watchlog";
   function renderFeed() {
     const el = $("wFeed"); if (!el) return;
-    const min = +(store.get("snek-feedmin", 2000)), S = window.SNEK_SNAPSHOT || {}, items = [];
+    const min = +(store.get("snek-feedmin", 2000)), f = store.get("snek-feedf", { src: "all", side: "all" }), S = window.SNEK_SNAPSHOT || {}, items = [];
     const tr = (app().tradeRows && app().tradeRows()) || [];
-    tr.filter((r) => ok(r.usd) && r.usd >= min).forEach((r) => items.push({ t: r.time, icon: r.buy ? "🐋" : "📤", cls: r.buy ? "up" : "down", text: (r.buy ? "Buy " : "Sell ") + usdc(r.usd) + " · " + cmp(r.snek) + " SNEK", sub: r.venue + (r.dex ? " · on-chain" : " · CEX"), addr: r.addr, link: r.dex && r.id && /^[0-9a-f]{64}$/.test(r.id) ? "https://cardanoscan.io/transaction/" + r.id : null }));
-    (S.whaleMoves || []).forEach((m) => items.push({ t: Date.parse(m.t), icon: m.delta > 0 ? "⬆" : "⬇", cls: m.delta > 0 ? "up" : "down", text: "Top holder #" + m.rank + " " + signed(m.delta) + " SNEK", sub: (m.label || short(m.address)) + " · 30-min snapshot", addr: m.address }));
-    store.get(LOG_KEY, []).forEach((m) => items.push({ t: m.t, icon: "★", cls: m.d > 0 ? "up" : "down", text: m.name + " " + signed(m.d) + " SNEK", sub: "Your tracked wallet", addr: m.id }));
-    items.sort((a, b) => b.t - a.t);
-    $("wFeedNote").textContent = "Trades ≥ " + usdc(min) + " · top-10 holder moves ≥ 1M SNEK · your tracked wallets";
-    el.innerHTML = items.length ? '<div class="wfeed">' + items.slice(0, 30).map((i) => '<div class="wfi"><span class="wfic">' + i.icon + '</span><div class="grow"><div class="' + i.cls + '"><b>' + esc(i.text) + '</b></div><div class="muted small">' + esc(i.sub) + " · " + tz(i.t) + "</div></div>" +
+    if (f.src === "all" || f.src === "trades") tr.filter((r) => ok(r.usd) && r.usd >= min).forEach((r) => items.push({ kind: "trades", buy: r.buy, t: r.time, icon: r.buy ? "🐋" : "📤", cls: r.buy ? "up" : "down", text: (r.buy ? "Buy " : "Sell ") + usdc(r.usd) + " · " + cmp(r.snek) + " SNEK", sub: r.venue + (r.dex ? " · on-chain" : " · CEX"), addr: r.addr, link: r.dex && r.id && /^[0-9a-f]{64}$/.test(r.id) ? "https://cardanoscan.io/transaction/" + r.id : null, usd: r.usd }));
+    if (f.src === "all" || f.src === "holders") (S.whaleMoves || []).forEach((m) => items.push({ kind: "holders", buy: m.delta > 0, t: Date.parse(m.t), icon: m.delta > 0 ? "⬆" : "⬇", cls: m.delta > 0 ? "up" : "down", text: "Top holder #" + m.rank + " " + signed(m.delta) + " SNEK", sub: (m.label || short(m.address)) + " · 30-min snapshot", addr: m.address }));
+    if (f.src === "all" || f.src === "tracked") store.get(LOG_KEY, []).forEach((m) => items.push({ kind: "tracked", buy: m.d > 0, t: m.t, icon: "★", cls: m.d > 0 ? "up" : "down", text: ((noteOf(m.id) || {}).nick || m.name) + " " + signed(m.d) + " SNEK", sub: "Your tracked wallet", addr: m.id }));
+    const list = items.filter((i) => f.side === "all" || (f.side === "buy") === i.buy).sort((a, b) => b.t - a.t);
+    $("wFeedNote").textContent = (f.src === "all" || f.src === "trades" ? "Trades ≥ " + usdc(min) : "") + (f.src === "all" ? " · " : "") + (f.src === "all" || f.src === "holders" ? "top-10 holder moves ≥ 1M SNEK" : "") + (f.src === "all" ? " · " : "") + (f.src === "all" || f.src === "tracked" ? "your tracked wallets" : "");
+    const fb = $("wFeedFilters"); if (fb) fb.querySelectorAll("[data-fs],[data-fd]").forEach((b) => b.classList.toggle("on", b.dataset.fs ? b.dataset.fs === f.src : b.dataset.fd === f.side));
+    el.innerHTML = list.length ? '<div class="wfeed">' + list.slice(0, 30).map((i) => '<div class="wfi ' + i.cls + '"><span class="wfic">' + i.icon + '</span><div class="grow"><div class="' + i.cls + '"><b>' + esc(i.text) + '</b></div><div class="muted small">' + esc(i.sub) + " · " + tz(i.t) + "</div>" + (i.usd ? '<div class="wfbar"><i style="width:' + Math.min(100, Math.log10(i.usd / min + 1) * 60) + '%"></i></div>' : "") + "</div>" +
       (i.addr ? '<button class="linkbtn wopen" data-id="' + esc(i.addr) + '">Wallet</button>' : "") + (i.link ? ' <a class="linkbtn" href="' + i.link + '" target="_blank" rel="noopener">Tx</a>' : "") + "</div>").join("") + "</div>"
-      : '<p class="muted small">No whale moves in the latest data. Lower the threshold or check back soon.</p>';
+      : '<div class="wempty small"><img src="assets/brand/snek-face-happy.webp" alt="" width="64" height="44" loading="lazy"><span>No whale moves match these filters right now. Try a lower threshold or “All”.</span></div>';
   }
 
   // ---------- watchlist ----------
   const watch = () => store.get(WATCH_KEY, []);
   const saveWatch = (l) => store.set(WATCH_KEY, l);
   function track(w) {
-    const l = watch(), id = w.address || w.stake;
-    if (l.some((x) => x.id === id)) { saveWatch(l.filter((x) => x.id !== id)); toast("Stopped tracking " + nameOf(w).text); }
+    const l = watch(), id = idOf(w);
+    if (l.some((x) => x.id === id)) { saveWatch(l.filter((x) => x.id !== id)); toast("Stopped tracking " + displayName(w)); }
     else {
       if (l.length >= MAX_WATCH) { toast("You can track up to " + MAX_WATCH + " wallets", "warn"); return; }
-      l.push({ id, stake: w.stake || null, address: w.address || null, name: nameOf(w).text, added: Date.now(), snek0: w.snek, snek: w.snek, ada: w.ada, last: Date.now(), hist: [[Date.now(), w.snek]], ex: exLike(w) });
-      saveWatch(l); toast("Tracking " + nameOf(w).text + ". You’ll get a heads-up here when its SNEK balance moves.", "ok");
+      l.push({ id, stake: w.stake || null, address: w.address || null, name: nameOf(w).text, added: Date.now(), snek0: w.snek, snek: w.snek, ada: w.ada, p0: price(), last: Date.now(), hist: [[Date.now(), w.snek]], ex: exLike(w), avatar: w.avatar || null });
+      saveWatch(l); toast("Tracking " + displayName(w) + ". You’ll get a heads-up here when its SNEK balance moves.", "ok");
       if (FX()) FX().haptic(15);
+      if (window.SNEKFX && SNEKFX.confetti && !store.get("snek-firsttrack", 0)) { store.set("snek-firsttrack", 1); const b = $("wTrackBtn"); SNEKFX.confetti(b); }
     }
-    renderWatch(); if (current) renderProfile(current, false);
+    renderWatch(); if (current) { const t = current.tab; renderProfile(current, false); current.tab = t; }
   }
+  let watchTag = null;
   function renderWatch() {
-    const l = watch(), el = $("wWatch"); $("wCount").textContent = l.length ? "(" + l.length + "/" + MAX_WATCH + ")" : "";
-    if (!l.length) { el.innerHTML = '<div class="empty small"><img src="assets/brand/snek-face-love.webp" alt="" width="72" height="49" loading="lazy"><div>No wallets tracked yet. Look one up and tap <b>★ Track</b>, or tap a top holder below.</div><span class="fan">Fan-made dashboard · not affiliated with SNEK</span></div>'; return; }
-    el.innerHTML = '<div class="wlist">' + l.map((x) => {
-      const d0 = x.snek - x.snek0, dl = x.prev != null ? x.snek - x.prev : 0;
-      return '<div class="witem" data-id="' + esc(x.id) + '"><div class="wl"><button class="linkbtn wopen" data-id="' + esc(x.id) + '">' + esc(x.name) + "</button>" + (x.ex ? ' <span class="vtag ex">exchange-like</span>' : "") +
-        '<div class="muted small mono">' + esc(short(x.id)) + '</div></div><div class="wspark" id="ws_' + esc(x.id.slice(-10)) + '"></div><div class="wr"><div class="wv">' + cmp(x.snek) + ' <span class="muted small">SNEK</span></div>' +
-        '<div class="small ' + (d0 > 0 ? "up" : d0 < 0 ? "down" : "muted") + '">' + signed(d0) + " since tracked</div>" + (dl ? '<div class="small ' + (dl > 0 ? "up" : "down") + '">' + signed(dl) + " last check</div>" : "") +
-        '<div class="muted small">' + tz(x.last) + '</div></div><button class="icon-btn sm wdel" aria-label="Stop tracking" data-id="' + esc(x.id) + '">✕</button></div>';
-    }).join("") + "</div>";
-    l.forEach((x) => { const s = document.getElementById("ws_" + x.id.slice(-10)); if (s && FX() && x.hist.length > 1) FX().spark(s, x.hist.map((h) => h[1])); });
+    const l = watch(), el = $("wWatch"), p = price(); $("wCount").textContent = l.length ? "(" + l.length + "/" + MAX_WATCH + ")" : "";
+    if (!l.length) { el.innerHTML = '<div class="wempty"><img src="assets/brand/snek-face-love.webp" alt="" width="80" height="55" loading="lazy"><b>Your watchlist is empty</b><span class="muted small">Look up any wallet and tap <b>★ Track</b>, or tap a top holder. You’ll get a heads-up here when its SNEK balance moves.</span><button class="btn primary" type="button" data-q="$genesisfleet">Try $genesisfleet</button><span class="fan">Fan-made dashboard · not affiliated with SNEK</span></div>'; return; }
+    const N = notesAll(), tags = [...new Set(l.flatMap((x) => ((N[x.id] || {}).tags || [])))];
+    if (watchTag && !tags.includes(watchTag)) watchTag = null;
+    const shown = watchTag ? l.filter((x) => ((N[x.id] || {}).tags || []).includes(watchTag)) : l;
+    el.innerHTML = (tags.length ? '<div class="chips wchips tagfilter"><button type="button" data-tag="" class="' + (!watchTag ? "on" : "") + '">All</button>' + tags.map((t) => '<button type="button" data-tag="' + esc(t) + '" class="' + (watchTag === t ? "on" : "") + '">#' + esc(t) + "</button>").join("") + "</div>" : "") +
+      '<div class="wlist">' + shown.map((x) => {
+        const nt = N[x.id] || {}, nm = nt.nick || x.name, d0 = x.snek - x.snek0, dPct = x.snek0 > 0 ? (d0 / x.snek0) * 100 : null;
+        const vNow = p && ok(x.snek) ? x.snek * p : null, v0 = x.p0 && ok(x.snek0) ? x.snek0 * x.p0 : null, vPct = vNow && v0 ? ((vNow - v0) / v0) * 100 : null;
+        const badge = (v, lbl) => (ok(v) ? '<span class="pbadge ' + (v > 0.005 ? "up" : v < -0.005 ? "down" : "") + '" title="' + lbl + '">' + (v > 0 ? "▲" : v < 0 ? "▼" : "•") + " " + Math.abs(v).toFixed(Math.abs(v) < 10 ? 2 : 1) + "%</span>" : "");
+        return '<div class="witem wcardmini" style="--h1:' + hue(x.id) + '" data-id="' + esc(x.id) + '">' + avatarHTML(x.id, nm, x.avatar, 40) +
+          '<div class="wl"><button class="linkbtn wopen" data-id="' + esc(x.id) + '">' + esc(nm) + "</button>" + (x.ex ? ' <span class="vtag ex">exchange-like</span>' : "") +
+          '<div class="muted small mono">' + esc(short(x.id)) + "</div>" + ((nt.tags || []).length ? '<div class="wbadges">' + nt.tags.map((t) => '<span class="wtag">#' + esc(t) + "</span>").join("") + "</div>" : "") + "</div>" +
+          '<div class="wspark" id="ws_' + esc(x.id.slice(-10)) + '"></div>' +
+          '<div class="wr"><div class="wv">' + cmp(x.snek) + ' <span class="muted small">SNEK</span></div><div class="small muted">' + (vNow ? usdc(vNow) : "") + "</div>" +
+          '<div class="wbadges r">' + badge(dPct, "SNEK balance change since tracked") + badge(vPct, "USD value change since tracked") + "</div>" +
+          '<div class="muted small">' + tz(x.last) + '</div></div><button class="icon-btn sm wdel" aria-label="Stop tracking" data-id="' + esc(x.id) + '">✕</button></div>';
+      }).join("") + "</div>";
+    shown.forEach((x) => { const s = document.getElementById("ws_" + x.id.slice(-10)); const h = x.hist.length > 1 ? x.hist : [[x.added, x.snek0], [x.last, x.snek]]; if (s && FX()) FX().spark(s, h.map((q) => q[1])); });
   }
   let refreshing = false;
   async function refreshWatch() {
@@ -417,7 +553,7 @@
       if (act && w) {
         const a = act.dataset.act;
         if (a === "activity") { act.disabled = true; loadActivity(w).then(() => { act.disabled = false; }); }
-        else if (a === "actmore") { w.act.show = (w.act.show || 15) + 30; renderActivity(w); }
+        else if (a === "actmore") { w.act.show = (w.act.show || 20) + 30; renderActivity(w); }
         else if (a === "actnext") loadActivity(w, true);
         else if (a === "csv") csv(w);
         else if (a === "share") shareLink(w);
@@ -426,7 +562,19 @@
       const cb = e.target.closest("[data-cmp]"); if (cb && w) { $("wCmpIn").value = cb.dataset.cmp; compare(w, cb.dataset.cmp); }
       const c = e.target.closest("[data-copy]"); if (c) { navigator.clipboard && navigator.clipboard.writeText(c.dataset.copy).then(() => toast("Copied", "ok"), () => {}); }
     });
-    $("wProfile").addEventListener("submit", (e) => { if (e.target.id === "wCmpForm") { e.preventDefault(); if (current) compare(current, $("wCmpIn").value); } });
+    $("wProfile").addEventListener("submit", (e) => {
+      if (e.target.id === "wCmpForm") { e.preventDefault(); if (current) compare(current, $("wCmpIn").value); }
+      if (e.target.id === "wNoteForm" && current) { e.preventDefault(); const tags = $("wTags").value.split(",").map((t) => t.trim().replace(/^#/, "").toLowerCase().replace(/[^a-z0-9_-]/g, "")).filter(Boolean).slice(0, 6); setNote(idOf(current), { nick: $("wNick").value.trim().slice(0, 40), tags: [...new Set(tags)], note: $("wNote").value.trim().slice(0, 280) }); toast("Saved in this browser", "ok"); renderProfile(current, false); renderWatch(); }
+    });
+    $("wProfile").addEventListener("click", (e) => {
+      const tb = e.target.closest("[data-wt]"); if (tb && current) { current.tab = tb.dataset.wt; renderPane(current); return; }
+      const a = e.target.closest("[data-act]"); if (!a || !current) return;
+      if (a.dataset.act === "notes") { const f = $("wNoteForm"); f.hidden = !f.hidden; if (!f.hidden) $("wNick").focus(); }
+      else if (a.dataset.act === "notesclose") $("wNoteForm").hidden = true;
+      else if (a.dataset.act === "view-snek" || a.dataset.act === "view-usd") { current.act.view = a.dataset.act.slice(5); renderActivity(current); }
+    });
+    if (!$("wProfile").innerHTML.trim()) $("wProfile").innerHTML = '<div class="wempty wstart"><div class="wsk">' + avatarHTML("snek", "?", null, 48) + '<span class="sk1"></span><span class="sk2"></span></div><b>Look up any Cardano wallet</b><span class="muted small">Paste an <span class="mono">addr1…</span>, <span class="mono">stake1…</span> or <span class="mono">$handle</span> to see SNEK, every token, staking rewards and a full activity timeline. Read-only: no wallet connection, no signing.</span></div>';
+    const ff = $("wFeedFilters"); if (ff) ff.addEventListener("click", (e) => { const b = e.target.closest("[data-fs],[data-fd]"); if (!b) return; const f = store.get("snek-feedf", { src: "all", side: "all" }); if (b.dataset.fs) f.src = b.dataset.fs; else f.side = b.dataset.fd; store.set("snek-feedf", f); renderFeed(); });
     const feed = $("wFeed");
     if (feed) {
       feed.addEventListener("click", (e) => { const o = e.target.closest(".wopen"); if (o) { $("wInput").value = o.dataset.id; lookup(o.dataset.id); $("wallets").scrollIntoView({ behavior: "smooth" }); } });
@@ -435,6 +583,8 @@
     }
     window.addEventListener("hashchange", () => { const m = location.hash.match(/^#wallet=(.+)$/); if (m) { const q = decodeURIComponent(m[1]); if (!current || current.query !== q) { $("wInput").value = q; lookup(q); $("wallets").scrollIntoView({ behavior: "smooth" }); } } });
     $("wWatch").addEventListener("click", (e) => {
+      const tg = e.target.closest("[data-tag]"); if (tg) { watchTag = tg.dataset.tag || null; renderWatch(); return; }
+      const q = e.target.closest("button[data-q]"); if (q) { $("wInput").value = q.dataset.q; lookup(q.dataset.q); return; }
       const d = e.target.closest(".wdel"); if (d) { saveWatch(watch().filter((x) => x.id !== d.dataset.id)); renderWatch(); return; }
       const o = e.target.closest(".wopen"); if (o) { $("wInput").value = o.dataset.id; lookup(o.dataset.id); $("wallets").scrollIntoView({ behavior: "smooth" }); }
     });

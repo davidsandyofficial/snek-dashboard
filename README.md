@@ -28,6 +28,8 @@ Tap **ƒx Indicators** above the chart. Overlays: SMA ×2, EMA ×2 (periods conf
 
 ## Customizable layout
 
+- **Press and hold any card** (about 0.4 s on touch, 0.3 s with a mouse) on a non-interactive spot such as its title, then drag it to a new place. No edit mode needed. Buttons, inputs, links, tables, lists and the chart canvas are excluded, so scrolling and chart panning work as before. Pinned cards stay put. You get a short vibration where supported, a lifted card, a "Drop here" placeholder and an Undo toast.
+
 Every card is a widget. Tap **▦** in the header (or **Customize layout** at the bottom) to edit:
 
 - Drag the **⠿** handle, or use **↑ ↓** (works well on touch and with a keyboard).
@@ -37,6 +39,8 @@ Every card is a widget. Tap **▦** in the header (or **Customize layout** at th
 - **Reset** restores the default layout. The layout is saved only in this browser (`localStorage` key `snek-layout`).
 
 ## Wallet tracker (Wallets tab)
+
+**v3:** a gradient profile card with an avatar (the ADA Handle image when there is one) and the USD value counting up. Tabs for Overview, Holdings (with a donut by value), Activity (a balance chart in SNEK or USD over the loaded window, plus a day-grouped timeline) and Staking (pool margin, cost and pledge, lifetime rewards, and reward bars for the last 12 epochs from Yoroi's public backend). Nicknames, tags and notes are saved in this browser only. Watchlist cards have avatars, tag filters and %-change badges. The whale feed can be filtered by source and by direction. DexHunter prices are only requested for tokens on DexHunter's public token list.
 Inspired by community requests for "beautiful wallet tracking tools". Paste an `addr1…` address, a `stake1…` key or a `$handle`:
 - SNEK and ADA balance, staking status, ADA Handles held, and "exchange-like" signals (big undelegated ADA, ≥20 handles, ≥100 txs/24 h, legacy Byron address). Signals are hints, not proof of ownership.
 - ★ Track up to 12 wallets (saved only in your browser). They are re-checked every 5 minutes while the page is open, with a toast when a balance moves by ≥1M SNEK.
@@ -72,3 +76,7 @@ Run the updater manually: Actions → "Update data snapshot" → Run workflow, o
 Safety: no wallet connection, no seed phrases, nothing is ever signed.
 
 Fan-made community dashboard by David Sandy. Not affiliated with or endorsed by SNEK. SNEK brand assets © their owners, used per snek.com terms. Not financial advice.
+
+## Effects
+
+The hero and wallet search have animated gradient borders. The header and bars use glass blur. With a mouse, cards get a spotlight and a slight 3D tilt (small cards only). Other effects: a scroll-progress bar, a parallax hero glow, a sliding tab indicator, panes that fade in, confetti the first time you track a wallet, and an easter egg: tap the logomark 5 times for a tiny snake game. Under `prefers-reduced-motion` all of these are switched off or made static. Every scroll and pointer handler is passive and throttled with requestAnimationFrame.

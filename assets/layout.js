@@ -180,6 +180,26 @@
       if (e.target.closest("#layoutReset")) { snap(); L = blank(); save(); apply(true); undoToast("Layout reset to default"); }
     });
   }
+  // ---------- drag to reorder: always on (press and hold anywhere non-interactive on a card), plus edit-mode bars ----------
+  const NO_DRAG = "a,button,input,select,textarea,label,summary,details,canvas,svg,img,video,iframe,[contenteditable],[role=button],[role=tab],[data-nodrag]," +
+    "#tvchart,.chartbox,.table-wrap,table,.treemap,.seg,.chips,.wkebab,.wmenu,.wvalchart,.wlist,.wfeed,.tline,.wtx,.hchips,.pinned,.whid,.wb";
+  function sortMode(edit) {
+    if (!window.Sortable) return;
+    const opts = edit ? { handle: ".wctl", filter: ".wb,.pinned", delay: 180, delayOnTouchOnly: true } : { handle: null, filter: NO_DRAG, delay: matchMedia("(pointer: coarse)").matches ? 400 : 300, delayOnTouchOnly: false };
+    if (!sortable) {
+      sortable = Sortable.create(grid, Object.assign({
+        draggable: ".w", preventOnFilter: false, touchStartThreshold: 6, animation: reduced() ? 0 : 200, easing: "cubic-bezier(.2,.8,.2,1)",
+        ghostClass: "wghost", chosenClass: "wchosen", dragClass: "wdrag", forceFallback: true, fallbackTolerance: 3, fallbackOnBody: true,
+        scroll: true, scrollSensitivity: 90, bubbleScroll: true,
+        onMove: (ev) => !ev.related.classList.contains("pinned"),
+        onChoose: (ev) => { haptic(15); ev.item.classList.add("wlift"); closeMenu(); hideCoach(); },
+        onUnchoose: (ev) => ev.item.classList.remove("wlift"),
+        onStart: () => { snap(); document.body.classList.add("dragging"); try { getSelection().removeAllRanges(); } catch (e) {} },
+        onEnd: (ev) => { document.body.classList.remove("dragging"); ev.item.classList.remove("wlift"); const now = all().map((w) => w.dataset.w); if (JSON.stringify(now) === JSON.stringify(L.order)) { undoStack.pop(); return; } L.order = now; save(); apply(); haptic(8); undoToast("Moved " + title(ev.item.dataset.w)); },
+      }, opts));
+    } else Object.keys(opts).forEach((k) => sortable.option(k, opts[k]));
+    sortable.option("disabled", false);
+  }
   function setEditing(on) {
     if (on === editing) return;
     closeMenu();
@@ -188,20 +208,10 @@
     all().forEach((w) => ctlFor(w));
     if (on) {
       if (!bar) makeBar(); bar.hidden = false; apply();
-      if (window.Sortable && !sortable) sortable = Sortable.create(grid, {
-        handle: ".wctl", draggable: ".w", filter: ".wb,.pinned", preventOnFilter: false,
-        delay: 180, delayOnTouchOnly: true, touchStartThreshold: 5, animation: reduced() ? 0 : 200, easing: "cubic-bezier(.2,.8,.2,1)",
-        ghostClass: "wghost", chosenClass: "wchosen", dragClass: "wdrag", forceFallback: true, fallbackTolerance: 3, fallbackOnBody: true,
-        scroll: true, scrollSensitivity: 90, bubbleScroll: true,
-        onMove: (ev) => !ev.related.classList.contains("pinned"),
-        onChoose: () => haptic(15),
-        onStart: () => { snap(); document.body.classList.add("dragging"); },
-        onEnd: (ev) => { document.body.classList.remove("dragging"); const now = all().map((w) => w.dataset.w); if (JSON.stringify(now) === JSON.stringify(L.order)) { undoStack.pop(); return; } L.order = now; save(); apply(); haptic(8); undoToast("Moved " + title(ev.item.dataset.w)); },
-      });
-      if (sortable) sortable.option("disabled", false);
+      sortMode(true);
       try { localStorage.setItem(COACH, "1"); } catch (e) {} hideCoach();
     } else {
-      if (sortable) sortable.option("disabled", true);
+      sortMode(false);
       if (bar) bar.hidden = true;
       window.dispatchEvent(new Event("resize"));
       toast(isDefault() ? "Layout saved (default)" : "Layout saved in this browser");
@@ -222,7 +232,7 @@
     const target = [document.getElementById("layoutBtn"), fab].find((b) => b && getComputedStyle(b).display !== "none" && b.getBoundingClientRect().width > 0 && !b.classList.contains("tuck"));
     if (!target) return;
     coach = document.createElement("div"); coach.className = "coach"; coach.setAttribute("role", "dialog"); coach.setAttribute("aria-label", "Tip");
-    coach.innerHTML = '<b>✨ Make this dashboard yours</b><p>Tap <b>Customize</b> to drag, pin and hide widgets, or pick a preset: Trader, Holder or Wallet watcher. Every card also has a <b>⋯</b> menu.</p><div class="row gap"><button type="button" class="btn primary" data-c="go">Show me</button><button type="button" class="btn" data-c="x">Got it</button></div>';
+    coach.innerHTML = '<b>✨ Make this dashboard yours</b><p><b>Press and hold</b> any card to drag it somewhere new. Tap <b>Customize</b> to pin, hide and resize widgets, or pick a preset: Trader, Holder or Wallet watcher. Every card also has a <b>⋯</b> menu.</p><div class="row gap"><button type="button" class="btn primary" data-c="go">Show me</button><button type="button" class="btn" data-c="x">Got it</button></div>';
     document.body.appendChild(coach);
     const r = target.getBoundingClientRect(), cw = coach.offsetWidth, ch = coach.offsetHeight, below = r.top < innerHeight / 2;
     coach.style.left = Math.min(innerWidth - cw - 10, Math.max(10, r.left + r.width / 2 - cw / 2)) + "px";
@@ -251,6 +261,6 @@
     if (e.key === "Escape") { if (menu) closeMenu(); else if (editing) setEditing(false); }
     if ((e.ctrlKey || e.metaKey) && e.key === "z" && undoStack.length && !e.target.closest("input,textarea")) { e.preventDefault(); undo(); }
   });
-  apply();
+  apply(); sortMode(false);
   window.SNEKLAYOUT = { goto, setEditing, applyPreset, undo, get: () => JSON.parse(JSON.stringify(L)), isEditing: () => editing };
 })();
