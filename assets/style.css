@@ -602,3 +602,58 @@ html.nofx .splash-art .sa1{opacity:1}
 #phCustom input[type=date]{flex:1 1 0;min-width:0;width:auto}
 @media(max-width:560px){.phctl .seg button,.phopts .seg button{padding-left:9px;padding-right:9px}.phgrid{gap:10px 12px}}
 .phtgl{flex-direction:row!important;color:var(--text)}
+
+/* ===== Guidance + delight (extras.js) ===== */
+.hlp{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;min-height:16px;margin-left:5px;padding:0;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);font:700 10px/1 Inter,system-ui,sans-serif;font-style:italic;cursor:help;vertical-align:1px;position:relative}
+.hlp::after{content:"";position:absolute;inset:-10px}
+.hlp:hover,.hlp:focus-visible{color:var(--snek);border-color:var(--snek)}
+.hpop{position:absolute;z-index:80;display:grid;gap:4px;padding:10px 12px;border-radius:12px;background:var(--card2);border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,.35);font-size:13px;line-height:1.45;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s}
+.hpop.in{opacity:1;transform:none}.hpop b{font-size:13px}.hpop span{color:var(--muted)}
+/* palette */
+.pal,.msheet{position:fixed;inset:0;z-index:90}
+.palback{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.palbox{position:relative;margin:min(12vh,90px) auto 0;width:min(620px,calc(100% - 24px));max-height:min(70vh,560px);display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.45);overflow:hidden;transform:translateY(-8px) scale(.98);opacity:0;transition:transform .18s ease,opacity .18s ease}
+.pal.open .palbox{transform:none;opacity:1}
+.palin{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.palin span{font-size:20px;color:var(--muted)}.palin input{flex:1;min-width:0;border:0;background:transparent;color:var(--text);font:inherit;font-size:16px;outline:none;min-height:36px}
+.palin kbd,.palfoot kbd{font:600 11px Inter,system-ui,sans-serif;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+#palList{list-style:none;margin:0;padding:6px;overflow:auto;flex:1}
+#palList li{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:12px;cursor:pointer}
+#palList li.on,#palList li:hover{background:var(--card2)}#palList li.on{outline:1px solid color-mix(in srgb,var(--snek) 45%,transparent)}
+#palList .palg{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 10px 4px;cursor:default;background:none!important;outline:0!important}
+.pali{width:28px;text-align:center;font-size:17px;flex:none}.palt{display:grid;min-width:0}.palt b{font-size:14px}.palt span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.palnone{padding:16px!important;cursor:default!important}
+.palfoot{padding:8px 14px;border-top:1px solid var(--line)}
+@media(max-width:560px){.palbox{margin-top:10px;max-height:calc(100vh - 90px)}.palfoot{display:none}}
+/* mobile More sheet */
+.mbox{position:absolute;left:0;right:0;bottom:0;padding:8px 14px calc(16px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;transform:translateY(100%);transition:transform .22s ease}
+.msheet.open .mbox{transform:none}
+.mgrip{width:40px;height:4px;border-radius:4px;background:var(--line);margin:4px auto 12px}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mgrid button{display:flex;flex-direction:column;align-items:center;gap:4px;min-height:72px;justify-content:center;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:14px;font:inherit;font-size:13px;cursor:pointer}
+.mgrid button span{font-size:22px}
+.mbox p{text-align:center;margin:12px 0 0}
+.tabs a.tmore{display:none}
+@media(max-width:899px){.tabs{grid-template-columns:repeat(5,1fr)!important}.tabs a.mhide{display:none}.tabs a.tmore{display:flex}.tabs a{font-size:11px!important}}
+/* tour */
+.tour{position:fixed;inset:0;z-index:95}
+.tspot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.62),0 0 0 2px var(--snek),0 0 24px var(--glow);transition:all .28s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+.tcard{position:fixed;padding:14px 16px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.5);transition:top .28s cubic-bezier(.2,.8,.2,1),left .28s cubic-bezier(.2,.8,.2,1)}
+.tcard .tt{font-size:16px}.tcard .tb{margin:6px 0 12px;color:var(--muted);line-height:1.5;font-size:14px}
+.tprog{display:flex;gap:5px;margin-bottom:8px}.tprog i{height:4px;flex:1;border-radius:4px;background:var(--line)}.tprog i.on{background:var(--snek)}
+.nofx .tspot,.nofx .tcard{transition:none}
+/* widget enter + celebration */
+.w.wenter{animation:wenter .5s cubic-bezier(.2,.8,.2,1)}
+@keyframes wenter{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.price.celebrate{animation:celeb 1.2s ease}
+@keyframes celeb{20%{transform:scale(1.08);text-shadow:0 0 22px var(--snek)}100%{transform:none}}
+/* share toggle + settings widget list */
+.shtgl{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;font-size:13px;color:var(--text)!important;margin:8px 0}
+.srow.col{display:grid;gap:8px}
+.wlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 12px}
+.wlist .wl{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;font-size:13px;color:var(--text)!important;min-height:32px}
+.wlist .wl input{width:18px;height:18px;min-height:18px}
+.ptpl .btn{white-space:nowrap}
+@media(prefers-reduced-motion:reduce){.w.wenter,.price.celebrate,.palbox,.mbox,.hpop{animation:none!important;transition:none!important}}
+.tbtns .btn{flex:none;white-space:nowrap;overflow:visible}.tcard .tbtns{flex-wrap:wrap;align-items:center;gap:8px}.tcard .tbtns .grow{min-width:0}
+@media(max-width:430px){#settingsBtn{display:none}}

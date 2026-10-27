@@ -419,7 +419,7 @@
       '<div class="phchart-wrap"><div id="phChart" class="phchart" aria-label="Portfolio value chart"></div><div id="phTip" class="phtip" hidden></div></div>' +
       '<div id="phInspect" class="phinspect small" aria-live="polite">Tap or drag on the chart to inspect a day.</div>' +
       '<div id="phLegend" class="phlegend small"></div>' +
-      '<div class="row wrap gap phacts"><button type="button" class="btn sm" id="phCsv">⬇ CSV</button><button type="button" class="btn sm" id="phShare">⇪ Share</button><button type="button" class="btn sm" id="phRefresh">⟳ Refresh</button><button type="button" class="btn sm" id="phMore" hidden>Load further back</button></div>' +
+      '<div class="row wrap gap phacts"><button type="button" class="btn sm" id="phCsv">⬇ CSV</button><button type="button" class="btn sm" id="phShare">⇪ Share</button><button type="button" class="btn sm primary" id="phCard" title="A shareable P/L card that never shows the wallet address">🃏 P/L card</button><button type="button" class="btn sm" id="phRefresh">⟳ Refresh</button><button type="button" class="btn sm" id="phMore" hidden>Load further back</button></div>' +
       '<h3 class="mt">P/L by range</h3><div class="table-wrap"><table class="phtable" id="phRanges"></table></div>' +
       '<details class="mt" id="phDailyBox"><summary><b>Daily changes</b></summary><div class="table-wrap"><table class="phtable" id="phDaily"></table></div><button type="button" class="btn sm" id="phAllDays" hidden>Show all days</button></details>' +
       '<div id="phNote" class="muted small mt"></div>';
@@ -664,6 +664,37 @@
     const blob = new Blob(["# SNEK Dashboard (fan-made) portfolio history · " + sel.label + " · real on-chain data, empty cells = no data (never interpolated)\n" + lines.join("\n")], { type: "text/csv" });
     const u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = "snek-portfolio-" + String(sel.label).replace(/[^a-z0-9$]+/gi, "-").slice(0, 30) + "-" + iso(rows[0].time) + "-" + iso(rows[rows.length - 1].time) + ".csv"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 800);
   }
+  // opt-in P/L card: drawn from the computed rows only (no chart screenshot), never shows an address;
+  // the wallet's $handle appears only if the user ticks the box
+  function pnlCard() {
+    if (!ctx || !ctx.S || !window.SNEKSHARE) return;
+    const S = ctx.S, cur = curNow(), R = (RANGES.find((r) => r[0] === prefs.range) || RANGES[4])[2], rows = (ctx.rows || []).filter((r) => ok(r.total));
+    const handle = sel.kind === "one" && /^\$/.test(sel.spec.name || "") ? sel.spec.name : null;
+    const pctV = ok(S.plPct) ? S.plPct : S.chPct, up = !ok(pctV) || pctV >= 0;
+    const textFor = (show) => (show && handle ? handle + "’s" : "My") + " $SNEK bag over " + (R === "All" ? "all time" : R) + ": " + pctS(pctV) + " price-driven P/L" + (S.mdd < -0.05 ? ", max drawdown " + S.mdd.toFixed(1) + "%" : "") + ". Real on-chain history on the free, fan-made SNEK dashboard by @DavidSandy 🐍";
+    const site = SNEKSHARE.linkFor({ section: "wallets" });
+    SNEKSHARE.open({ title: "Share a P/L card", kind: "pnl", section: "wallets", url: site, text: textFor(false),
+      toggle: handle ? { label: "Show my handle " + handle + " (the address is never shown)", on: false, apply: (on) => ({ text: textFor(on), url: on ? SNEKSHARE.linkFor({ wallet: handle }) : site }) } : null,
+      png: (show) => SNEKSHARE.frameImage(async (g, W, H, snek) => {
+        const red = getComputedStyle(document.documentElement).getPropertyValue("--red").trim() || "#fc4c61", col = up ? snek : red;
+        g.fillStyle = "#0e1417"; g.beginPath(); g.roundRect ? g.roundRect(48, 122, W - 96, H - 196, 26) : g.rect(48, 122, W - 96, H - 196); g.fill(); g.strokeStyle = col + "88"; g.lineWidth = 2; g.stroke();
+        g.fillStyle = "#8fa3ab"; g.font = "600 22px Inter, system-ui, sans-serif"; g.fillText((show && handle ? handle : "My SNEK portfolio") + " · " + (R === "All" ? "all time" : R) + " · " + cur, 90, 172);
+        g.fillStyle = col; g.font = "900 104px Inter, system-ui, sans-serif"; g.fillText(ok(pctV) ? pctS(pctV) : "P/L unavailable", 84, 278);
+        g.fillStyle = "#c9d4d8"; g.font = "600 24px Inter, system-ui, sans-serif"; g.fillText(ok(S.plPct) ? "price-driven P/L (time-weighted, deposits and withdrawals excluded)" : "change in value", 90, 318);
+        g.fillStyle = "#f4f3ef"; g.font = "700 28px Inter, system-ui, sans-serif";
+        g.fillText("Max drawdown " + S.mdd.toFixed(1) + "%" + (S.ath ? "   ·   Peak " + new Date(S.ath.time * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : ""), 90, 362);
+        if (rows.length > 1) {
+          const x0 = 90, x1 = W - 90, y0 = 392, y1 = H - 104, v = rows.map((r) => r.total), lo = Math.min(...v), hi = Math.max(...v);
+          const sx = (i) => x0 + (i / (v.length - 1)) * (x1 - x0), sy = (y) => y1 - ((y - lo) / (hi - lo || 1)) * (y1 - y0);
+          const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, col + "55"); gr.addColorStop(1, col + "00");
+          g.beginPath(); v.forEach((y, i) => (i ? g.lineTo(sx(i), sy(y)) : g.moveTo(sx(i), sy(y)))); g.lineTo(x1, y1); g.lineTo(x0, y1); g.closePath(); g.fillStyle = gr; g.fill();
+          g.beginPath(); v.forEach((y, i) => (i ? g.lineTo(sx(i), sy(y)) : g.moveTo(sx(i), sy(y)))); g.strokeStyle = col; g.lineWidth = 4; g.lineJoin = "round"; g.stroke();
+          g.fillStyle = "#8fa3ab"; g.font = "500 16px Inter, system-ui, sans-serif"; g.fillText("Daily portfolio value (shape only, amounts hidden) · " + iso(rows[0].time) + " → " + iso(rows[rows.length - 1].time), x0, y1 + 24);
+        }
+        const face = await new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = up ? "assets/brand/snek-face-tongue.webp" : "assets/brand/snek-face-sleepy.webp"; });
+        if (face) g.drawImage(face, W - 260, 140, 170, 170 * face.height / face.width);
+      }, { title: "SNEK P/L card" }) });
+  }
   function share() {
     if (!ctx || !ctx.S || !window.SNEKSHARE || !chart) return; const S = ctx.S, cur = curNow(), R = (RANGES.find((r) => r[0] === prefs.range) || RANGES[4])[2];
     const q = sel.kind === "one" ? (/^\$/.test(sel.spec.name) ? sel.spec.name : sel.spec.address || sel.spec.stake) : null;
@@ -703,6 +734,7 @@
         prefs.on = on; setPref("off", off); return; }
       if (e.target.closest("#phCsv")) return csv();
       if (e.target.closest("#phShare")) return share();
+      if (e.target.closest("#phCard")) return pnlCard();
       if (e.target.closest("#phRefresh")) { tokFail.clear(); (sel.kind === "all" ? walletSpecs().filter((x) => x.tracked).map((x) => specKey(x, "stake")) : [specKey(sel.spec, prefs.scope)]).forEach((sp) => { const st = mem[sp.key]; if (st) st.at = 0; }); return run(); }
       if (e.target.closest("#phRetry")) return run();
       const m = e.target.closest("#phMore"); if (m) { m.disabled = true; m.textContent = "Loading…"; return run(PAGE_BUDGET); }

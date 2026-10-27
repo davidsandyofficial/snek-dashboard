@@ -108,14 +108,26 @@ A draggable "Portfolio history" widget charts the wallet you looked up, any trac
 - **Export:** CSV of the daily rows (balances, values, prices and sources), and a share image/link through the share sheet.
 - **No interpolation:** a day missing a price for an enabled, held asset has no total. Gaps are listed with reasons.
 
+## Getting around
+- **Guided tour** on the first visit (7 short steps, skippable). Re-open it from Settings → Help, ☰ More → Tour, the search palette, or the ? key.
+- **Search & commands** (⌕ in the header, ⌘K / Ctrl+K or /): jump to any section or widget (hidden ones are shown first), switch theme or currency, apply a layout template, turn animations on or off, share a price card, copy a layout link, or paste a $handle / addr1… / stake1… to open it in the wallet tracker.
+- **ⓘ help** next to metric labels (market cap, FDV, drawdown, price-driven P/L…) explains what the number means and where it comes from.
+- **Mobile nav:** the bottom bar keeps 5 big targets (Overview, Chart, Wallets, Trades, ☰ More). More holds Holders, Pools, Tools, Search, Share card, Customize, Settings, Tour and Theme.
+- **Motion:** widgets glide in when shown, prices roll and flash, numbers count up, and loading uses skeleton shimmer. A live price above CoinGecko's recorded all-time high, or a 24h gain of 15% or more, triggers confetti and a share prompt (at most once a day each). All motion is off with Settings → Effects & animations or when the device asks for reduced motion. Price vibration stays off by default.
+
 ## Settings (⚙ in the header, the "," key, or ⋯ → Settings)
 - Look: Dark, Light, OLED black or SNEK green theme (◐ cycles them), accent color presets plus a custom picker, compact/comfy density, text size S–XL, optional background art from the official SNEK media kit, effects/animations on/off, soft sounds on/off (off by default), "Vibrate on price moves" (off by default; drag and drop haptics stay on).
 - Numbers: currency USD, ADA (live ADA/USD) or EUR, GBP, JPY, CAD, AUD, CHF, INR, BRL, KRW, MXN (ECB rates from the keyless Frankfurter API, cached 12 h; values fall back to USD if rates are unavailable), compact or full numbers, separator style.
 - Dashboard: custom name in the header (the fan-made label always stays), the tab to open on.
+- Layout & widgets: Trader, Holder and Whale watcher templates (or back to Default) plus a show/hide checkbox for every widget.
 - Saved layouts: keep up to 12 named layouts and switch with one tap.
+- Help: start the tour or open search.
 - Backup & share: export/import a JSON file, copy a `#cfg=` share link, or paste a code. Incoming `#cfg=`/`#layout=` links always ask before applying.
 
 ## Sharing
+- **Price card** (↗ in the header): a 1200×675 image with the live price, 24h and 7d change, market cap, 24h volume, a real 7-day hourly sparkline, SNEK art, the fan-made label and the dashboard URL. If a number isn't available, the card says so.
+- **P/L card** (Portfolio history → 🃏 P/L card, opt-in): price-driven P/L %, max drawdown, peak date and the shape of the value curve with amounts hidden. It never shows the address. The wallet's $handle appears only if you tick the box.
+- **Layout links:** Settings → Copy layout link, or search → "Copy layout link". Whoever opens it is asked before anything changes.
 - ↗ in the header and ⇪ Share on the chart, wallet cards and whale moves open a share sheet: Post on X (opens X's composer with a prefilled post mentioning @DavidSandy; you review and send it), the native share sheet, copy link and save image.
 - Images are drawn in the browser on a canvas (chart via Lightweight Charts `takeScreenshot()`), framed with the SNEK logo, a fan-made label, "by @DavidSandy" and the site URL watermark.
 - Deep links: `#wallet=$handle`, `#chart=1D&cur=ada&type=line&ind=rsi,macd`, `#s=holders`, `#cfg=…`, `#layout=…`. `s/chart.html`, `s/wallets.html` and `s/holders.html` carry per-section preview images and forward to the dashboard.

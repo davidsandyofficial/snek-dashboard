@@ -565,6 +565,7 @@
     window.addEventListener("snek:fmt", () => { renderMarket(); renderHolders(); renderPools(); renderVenues(); renderTrades(); renderCalc(); });
     $("shareBtn").addEventListener("click", () => {
       const p = state.market && state.market.price;
+      if (window.SNEKSHARE && SNEKSHARE.price) return SNEKSHARE.price();
       if (window.SNEKSHARE) SNEKSHARE.open({ title: "Share the dashboard", text: "$SNEK" + (ok(p) ? " is at $" + Number(p.toPrecision(4)) : "") + ". Live price, chart, whales and wallet tracker on this free, fan-made dashboard by @DavidSandy 🐍" });
       else copy(location.href.split("#")[0], "Link copied");
     });

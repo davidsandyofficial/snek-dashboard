@@ -89,6 +89,35 @@
       if (face) { const fw = 250; g.drawImage(face, W - fw - 90, 200, fw, fw * face.height / face.width); }
     }, { title: "SNEK whale move" });
   }
+  // price share card: live price, 24h/7d change, market cap and a real 7-day hourly sparkline (assets/history/1H)
+  async function priceCardPNG() {
+    const m = (window.SNEKAPP && SNEKAPP.state && SNEKAPP.state.market) || {};
+    let pts = [];
+    try { const h = await SNEKHIST.latest("1H", "usd"); const from = Date.now() / 1000 - 7 * 86400; pts = h.bars.filter((b) => b.time >= from && isFinite(b.close)).map((b) => b.close); } catch (e) {}
+    if (pts.length && isFinite(m.price)) pts.push(m.price);
+    const up = isFinite(m.ch24) ? m.ch24 >= 0 : true;
+    const mascot = await img("assets/brand/snek-mascot-front.webp");
+    return frame(async (g, W, H, snek) => {
+      const red = css("--red") || "#fc4c61", col = up ? snek : red;
+      g.fillStyle = "#0e1417"; roundRect(g, 48, 122, W - 96, H - 196, 26); g.fill(); g.strokeStyle = col + "88"; g.lineWidth = 2; g.stroke();
+      g.fillStyle = "#8fa3ab"; g.font = "600 22px Inter, system-ui, sans-serif"; g.fillText("SNEK / USD · live", 90, 176);
+      g.fillStyle = "#f4f3ef"; g.font = "900 92px Inter, system-ui, sans-serif"; g.fillText(isFinite(m.price) ? "$" + Number(m.price.toPrecision(5)) : "Price unavailable", 86, 270);
+      const pc = (v) => (isFinite(v) ? (v >= 0 ? "▲ +" : "▼ −") + Math.abs(v).toFixed(2) + "%" : "–");
+      g.fillStyle = col; g.font = "800 40px Inter, system-ui, sans-serif"; g.fillText(pc(m.ch24) + "  24h", 90, 328);
+      g.fillStyle = "#c9d4d8"; g.font = "600 24px Inter, system-ui, sans-serif";
+      g.fillText("7d " + pc(m.ch7) + (isFinite(m.mcap) ? "   ·   Market cap $" + cmp(m.mcap) : "") + (isFinite(m.vol) ? "   ·   24h vol $" + cmp(m.vol) : ""), 90, 372);
+      if (pts.length > 2) {
+        const x0 = 90, x1 = W - 380, y0 = 400, y1 = H - 100, lo = Math.min(...pts), hi = Math.max(...pts), sx = (i) => x0 + (i / (pts.length - 1)) * (x1 - x0), sy = (v) => y1 - ((v - lo) / (hi - lo || 1)) * (y1 - y0);
+        const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, col + "55"); gr.addColorStop(1, col + "00");
+        g.beginPath(); pts.forEach((v, i) => (i ? g.lineTo(sx(i), sy(v)) : g.moveTo(sx(i), sy(v)))); g.lineTo(x1, y1); g.lineTo(x0, y1); g.closePath(); g.fillStyle = gr; g.fill();
+        g.beginPath(); pts.forEach((v, i) => (i ? g.lineTo(sx(i), sy(v)) : g.moveTo(sx(i), sy(v)))); g.strokeStyle = col; g.lineWidth = 4; g.lineJoin = "round"; g.stroke();
+        g.fillStyle = "#8fa3ab"; g.font = "500 16px Inter, system-ui, sans-serif"; g.fillText("Last 7 days · hourly closes", x0, y1 + 22);
+      } else { g.fillStyle = "#8fa3ab"; g.font = "500 18px Inter, system-ui, sans-serif"; g.fillText("7-day chart unavailable right now", 90, 440); }
+      if (mascot) g.drawImage(mascot, W - 330, 150, 250, 250 * mascot.height / mascot.width);
+      g.fillStyle = "#8fa3ab"; g.font = "500 16px Inter, system-ui, sans-serif"; g.textAlign = "right";
+      g.fillText(new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date()) + " CT", W - 70, H - 82); g.textAlign = "left";
+    }, { title: "SNEK live price" });
+  }
   function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 
   // ---------- share sheet ----------
@@ -96,16 +125,29 @@
   function open(o) {
     o = o || {}; cur = o; const url = o.url || linkFor(o);
     const text = o.text || "Tracking $SNEK on this free, fan-made dashboard by @DavidSandy 🐍 Live price, chart, whales and wallets.";
-    if (!sheet) { sheet = document.createElement("div"); sheet.className = "spanel share"; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true"); sheet.setAttribute("aria-label", "Share"); document.body.appendChild(sheet); sheet.addEventListener("click", onClick); }
+    if (!sheet) { sheet = document.createElement("div"); sheet.className = "spanel share"; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true"); sheet.setAttribute("aria-label", "Share"); document.body.appendChild(sheet); sheet.addEventListener("click", onClick); sheet.addEventListener("change", onToggle); }
     sheet.innerHTML = '<div class="sback" data-x></div><div class="ssheet"><div class="shead"><img src="assets/brand/snek-face-grin.webp" alt="" width="40" height="24"><b class="grow">' + esc(o.title || "Share") + '</b><button type="button" class="icon-btn sm" data-x aria-label="Close">✕</button></div><div class="sbody">' +
       (o.png ? '<div class="shprev"><div class="skel h120"></div></div>' : "") +
+      (o.toggle ? '<label class="shtgl"><input type="checkbox" id="shTgl"' + (o.toggle.on ? " checked" : "") + "> " + esc(o.toggle.label) + "</label>" : "") +
       '<textarea id="shText" rows="3" maxlength="260">' + esc(text) + '</textarea><div class="shlink mono small">' + esc(url) + "</div>" +
       '<div class="shbtns"><button type="button" class="btn primary" data-sh="x">𝕏 Post on X</button>' + (navigator.share ? '<button type="button" class="btn" data-sh="native">↗ Share…</button>' : "") + '<button type="button" class="btn" data-sh="copy">🔗 Copy link</button>' + (o.png ? '<button type="button" class="btn" data-sh="png">⬇ Save image</button>' : "") + "</div>" +
       (o.png ? '<p class="muted small">On X, attach the saved image to your post. Your phone’s Share… can send the image directly.</p>' : "") +
       '<p class="muted small">Nothing is posted for you. You review and send it yourself. Fan-made dashboard, not affiliated with SNEK.</p></div></div>';
     sheet.hidden = false; requestAnimationFrame(() => sheet.classList.add("open"));
     cur.url = url; cur.blob = null;
-    if (o.png) o.png().then((c) => new Promise((res) => c.toBlob(res, "image/png"))).then((b) => { cur.blob = b; const pv = sheet.querySelector(".shprev"); if (pv) { const u = URL.createObjectURL(b); pv.innerHTML = '<img src="' + u + '" alt="Share image preview">'; } }).catch((e) => { const pv = sheet.querySelector(".shprev"); if (pv) pv.innerHTML = '<p class="small warn">Couldn’t make the image: ' + esc(e.message) + "</p>"; });
+    render(o);
+  }
+  function render(o) {
+    cur.blob = null; const pv0 = sheet.querySelector(".shprev"); if (pv0 && o.png) pv0.innerHTML = '<div class="skel h120"></div>';
+    const on = o.toggle ? !!o.toggle.on : undefined;
+    const tok = (cur.tok = (cur.tok || 0) + 1);
+    if (o.png) o.png(on).then((c) => new Promise((res) => c.toBlob(res, "image/png"))).then((b) => { if (tok !== cur.tok) return; cur.blob = b; const pv = sheet.querySelector(".shprev"); if (pv) { const u = URL.createObjectURL(b); pv.innerHTML = '<img src="' + u + '" alt="Share image preview">'; } }).catch((e) => { const pv = sheet.querySelector(".shprev"); if (pv) pv.innerHTML = '<p class="small warn">Couldn’t make the image: ' + esc(e.message) + "</p>"; });
+  }
+  function onToggle(e) {
+    if (!cur || !cur.toggle || e.target.id !== "shTgl") return;
+    cur.toggle.on = e.target.checked;
+    if (cur.toggle.apply) { const r = cur.toggle.apply(cur.toggle.on) || {}; if (r.text != null && $("shText")) $("shText").value = r.text; if (r.url) { cur.url = r.url; const l = sheet.querySelector(".shlink"); if (l) l.textContent = r.url; } }
+    render(cur);
   }
   function close() { if (!sheet) return; sheet.classList.remove("open"); setTimeout(() => { sheet.hidden = true; }, 220); }
   function onClick(e) {
@@ -125,6 +167,11 @@
   // ---------- public helpers used by other modules ----------
   const API = {
     open, close, linkFor,
+    price() {
+      const m = (window.SNEKAPP && SNEKAPP.state && SNEKAPP.state.market) || {}, p = m.price;
+      open({ title: "Share a SNEK price card", kind: "price", png: priceCardPNG,
+        text: "$SNEK " + (isFinite(p) ? "$" + Number(p.toPrecision(4)) : "") + (isFinite(m.ch24) ? " (" + (m.ch24 >= 0 ? "+" : "−") + Math.abs(m.ch24).toFixed(1) + "% 24h)" : "") + " 🐍 Live price, chart, whales and wallets on the free, fan-made SNEK dashboard by @DavidSandy" });
+    },
     chart() { open({ title: "Share this chart", kind: "chart", chart: chartHash(), png: chartPNG, text: "$SNEK " + ((SNEKAPP.state.chart || {}).iv || "") + " chart on the free, fan-made SNEK dashboard by @DavidSandy 📈" }); },
     wallet(w) { const q = w.query && w.query.startsWith("$") ? w.query : w.address || w.stake; open({ title: "Share this wallet", kind: "wallet", wallet: q, png: () => walletPNG(w), text: "Checking " + (q.startsWith("$") ? q : "this wallet") + " on the free, fan-made SNEK dashboard by @DavidSandy 🐍" }); },
     whale(it) { open({ title: "Share this whale move", kind: "whale", section: "trades", png: () => whalePNG(it), text: (it.buy ? "🐋 " : "📤 ") + "$SNEK whale move: " + it.text + ". Spotted on the free, fan-made dashboard by @DavidSandy" }); },

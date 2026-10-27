@@ -33,7 +33,7 @@
   const PRESETS = {
     trader: { name: "Trader", icon: "📈", desc: "Chart, live prices, trades and whale feed first", order: ["chart", "price", "venues", "trades", "wfeed", "liquidity", "volume", "alerts", "stats"], pinned: ["chart"], hidden: ["calc", "links"], size: { price: 6, venues: 6 } },
     holder: { name: "Holder", icon: "💎", desc: "Price, your portfolio, alerts and holder stats", order: ["price", "portfolio", "alerts", "stats", "holders", "chart", "calc", "wtop"], pinned: ["price"], hidden: ["trades", "volume", "liquidity", "venues"], size: {} },
-    watcher: { name: "Wallet watcher", icon: "🔎", desc: "Wallet tracker, your watchlist and whale moves", order: ["wsearch", "whist", "watch", "wfeed", "wtop", "price", "holders", "chart"], pinned: ["wsearch"], hidden: ["calc", "venues", "volume", "portfolio"], size: { wsearch: 8, watch: 4 } },
+    watcher: { name: "Whale watcher", icon: "🐋", desc: "Whale feed, labeled top holders and wallet tracking first", order: ["wfeed", "wtop", "trades", "wsearch", "watch", "whist", "price", "holders", "chart"], pinned: ["wfeed"], hidden: ["calc", "venues", "volume", "portfolio"], size: { wsearch: 8, watch: 4 } },
   };
   function applyPreset(k) {
     const P = PRESETS[k]; if (!P) return; snap();
@@ -328,7 +328,7 @@
     const target = [document.getElementById("layoutBtn"), fab].find((b) => b && getComputedStyle(b).display !== "none" && b.getBoundingClientRect().width > 0 && !b.classList.contains("tuck"));
     if (!target) return;
     coach = document.createElement("div"); coach.className = "coach"; coach.setAttribute("role", "dialog"); coach.setAttribute("aria-label", "Tip");
-    coach.innerHTML = '<b>✨ Make this dashboard yours</b><p><b>Press and hold</b> any card to drag it somewhere new. Tap <b>Customize</b> to pin, hide and resize widgets, or pick a preset: Trader, Holder or Wallet watcher. Every card also has a <b>⋯</b> menu.</p><div class="row gap"><button type="button" class="btn primary" data-c="go">Show me</button><button type="button" class="btn" data-c="x">Got it</button></div>';
+    coach.innerHTML = '<b>✨ Make this dashboard yours</b><p><b>Press and hold</b> any card to drag it somewhere new. Tap <b>Customize</b> to pin, hide and resize widgets, or pick a preset: Trader, Holder or Whale watcher. Every card also has a <b>⋯</b> menu.</p><div class="row gap"><button type="button" class="btn primary" data-c="go">Show me</button><button type="button" class="btn" data-c="x">Got it</button></div>';
     document.body.appendChild(coach);
     const r = target.getBoundingClientRect(), cw = coach.offsetWidth, ch = coach.offsetHeight, below = r.top < innerHeight / 2;
     coach.style.left = Math.min(innerWidth - cw - 10, Math.max(10, r.left + r.width / 2 - cw / 2)) + "px";

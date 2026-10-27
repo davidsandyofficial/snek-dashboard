@@ -96,6 +96,10 @@
   const toast = (m, t) => (window.SNEKFX ? SNEKFX.toast(m, t || "ok", 3000) : null);
   function seg(name, opts, val) { return '<div class="seg sm sseg" data-set="' + name + '">' + opts.map((o) => '<button type="button" data-v="' + o[0] + '" class="' + (String(val) === String(o[0]) ? "on" : "") + '">' + esc(o[1]) + "</button>").join("") + "</div>"; }
   function row(label, ctl, hint) { return '<div class="srow"><div class="sl"><b>' + label + "</b>" + (hint ? '<span class="muted small">' + hint + "</span>" : "") + '</div><div class="sc">' + ctl + "</div></div>"; }
+  function widgetList() {
+    const L = window.SNEKLAYOUT ? SNEKLAYOUT.get() : { hidden: [] };
+    return [...document.querySelectorAll("#wgrid > .w[data-w]")].filter((w) => w.dataset.w !== "follow").map((w) => '<label class="wl"><input type="checkbox" data-wshow="' + esc(w.dataset.w) + '"' + (L.hidden.includes(w.dataset.w) ? "" : " checked") + "><span>" + esc(w.dataset.title) + "</span></label>").join("");
+  }
   function render() {
     const P = profiles();
     panel.querySelector(".sbody").innerHTML =
@@ -105,7 +109,7 @@
       row("Density", seg("density", [["compact", "Compact"], ["comfy", "Comfy"]], S.density)) +
       row("Text size", seg("fs", [["s", "S"], ["m", "M"], ["l", "L"], ["xl", "XL"]], S.fs)) +
       row("Background art", seg("bg", BGS, S.bg), "Official SNEK media-kit art") +
-      row("Effects & animations", '<label class="tgl"><input type="checkbox" id="sFx"' + (S.fx ? " checked" : "") + "><span></span></label>", "Off = no motion, glow or confetti") +
+      row("Effects & animations", '<label class="tgl"><input type="checkbox" id="sFx"' + (S.fx ? " checked" : "") + "><span></span></label>", "Off = no motion, glow or confetti. Also off when your device asks for reduced motion") +
       row("Vibrate on price moves", '<label class="tgl"><input type="checkbox" id="sPriceVib"' + (S.pricevib ? " checked" : "") + "><span></span></label>", "Phone buzz on live price ticks and price alerts · off by default") +
       row("Sound", '<label class="tgl"><input type="checkbox" id="sSound"' + (S.sound ? " checked" : "") + "><span></span></label>", "Soft blips for alerts and whale moves") +
       '<h4>Numbers</h4>' +
@@ -115,9 +119,15 @@
       '<h4>Dashboard</h4>' +
       row("Name", '<input id="sName" maxlength="40" placeholder="SNEK Dashboard" value="' + esc(S.name) + '">', "Shown in the header · the fan-made label always stays") +
       row("Open on", '<select id="sTab">' + TABS.map((t) => '<option value="' + t[0] + '"' + (S.tab === t[0] ? " selected" : "") + ">" + t[1] + "</option>").join("") + "</select>") +
+      '<h4>Layout & widgets</h4>' +
+      row("Layout template", '<div class="row wrap gap ptpl">' + [["trader", "📈 Trader"], ["holder", "💎 Holder"], ["watcher", "🐋 Whale watcher"], ["reset", "↺ Default"]].map((p) => '<button type="button" class="btn sm" data-tpl="' + p[0] + '">' + p[1] + "</button>").join("") + "</div>", "Reorders, pins and hides widgets · Ctrl+Z undoes") +
+      '<div class="srow col"><div class="sl"><b>Show widgets</b><span class="muted small">Untick to hide. Hidden widgets also wait in the Customize tray.</span></div><div class="wlist">' + widgetList() + "</div></div>" +
+      '<h4>Help</h4>' +
+      row("Guided tour", '<button type="button" class="btn sm" id="sTour">🧭 Take the tour</button>', "A 30-second walkthrough · press ? anytime") +
+      row("Search & commands", '<button type="button" class="btn sm" id="sPal">⌕ Open</button>', "⌘K / Ctrl+K or / · jump anywhere, run actions, look up a $handle") +
       '<h4>Saved layouts</h4><div class="profiles">' + (P.length ? P.map((p, i) => '<div class="prof"><b>' + esc(p.name) + '</b><span class="muted small">' + new Date(p.t).toLocaleDateString() + '</span><button type="button" class="btn sm" data-pload="' + i + '">Use</button><button type="button" class="btn sm" data-pdel="' + i + '" aria-label="Delete ' + esc(p.name) + '">✕</button></div>').join("") : '<p class="muted small">No saved layouts yet.</p>') +
       '<form class="row gap" id="sProfForm"><input id="sProfName" maxlength="30" placeholder="Name this layout (e.g. Trading)" class="grow"><button class="btn primary sm">Save current</button></form></div>' +
-      '<h4>Backup & share</h4><div class="row gap wrap"><button type="button" class="btn sm" id="sExport">⬇ Export file</button><label class="btn sm filebtn">⬆ Import file<input type="file" id="sImport" accept="application/json,.json" hidden></label><button type="button" class="btn sm" id="sCode">🔗 Copy share link</button></div>' +
+      '<h4>Backup & share</h4><div class="row gap wrap"><button type="button" class="btn sm" id="sExport">⬇ Export file</button><label class="btn sm filebtn">⬆ Import file<input type="file" id="sImport" accept="application/json,.json" hidden></label><button type="button" class="btn sm" id="sCode">🔗 Copy look + layout link</button><button type="button" class="btn sm" id="sLayLink">🧩 Copy layout link</button></div>' +
       '<form class="row gap mt" id="sCodeForm"><input id="sCodeIn" class="grow" placeholder="Paste a share code or link"><button class="btn sm">Apply</button></form>' +
       '<p class="muted small mt">Settings, layouts and watchlists live only in this browser. Fan-made dashboard · not affiliated with SNEK · SNEK art © SNEK, used per snek.com terms.</p>' +
       '<div class="row gap"><button type="button" class="btn sm" id="sReset">Reset settings</button></div>';
@@ -142,6 +152,10 @@
       const pd = e.target.closest("[data-pdel]"); if (pd) { const l = profiles(); l.splice(+pd.dataset.pdel, 1); saveProfiles(l); render(); return; }
       if (e.target.closest("#sExport")) { const blob = new Blob([JSON.stringify(Object.assign(bundle(), { profiles: profiles() }), null, 2)], { type: "application/json" }), u = URL.createObjectURL(blob), x = document.createElement("a"); x.href = u; x.download = "snek-dashboard-settings-" + new Date().toISOString().slice(0, 10) + ".json"; document.body.appendChild(x); x.click(); setTimeout(() => { URL.revokeObjectURL(u); x.remove(); }, 800); toast("Settings file saved"); return; }
       if (e.target.closest("#sCode")) { const url = location.href.split("#")[0] + "#cfg=" + b64e(bundle()); (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast("Share link copied: it carries your look and layout"), () => prompt("Copy this link", url)); return; }
+      const tp = e.target.closest("[data-tpl]"); if (tp && window.SNEKLAYOUT) { const k = tp.dataset.tpl; if (k === "reset") { const L = SNEKLAYOUT.get(); SNEKLAYOUT.set({ order: [], pinned: [], hidden: [], size: {}, height: {} }); } else SNEKLAYOUT.applyPreset(k); render(); if (k === "reset") toast("Default layout restored · Ctrl+Z undoes"); return; }
+      if (e.target.closest("#sTour")) { close(); setTimeout(() => window.SNEKEXTRAS && SNEKEXTRAS.tour(0), 280); return; }
+      if (e.target.closest("#sPal")) { close(); setTimeout(() => window.SNEKEXTRAS && SNEKEXTRAS.palette(), 280); return; }
+      if (e.target.closest("#sLayLink")) { if (window.SNEKEXTRAS) SNEKEXTRAS.copyLayoutLink(); return; }
       if (e.target.closest("#sReset")) { S = Object.assign({}, DEF); save(); applyAll(); window.dispatchEvent(new Event("snek:fmt")); render(); toast("Settings reset"); }
     });
     panel.addEventListener("change", (e) => {
@@ -149,6 +163,7 @@
       if (t.id === "sFx") set("fx", t.checked); else if (t.id === "sPriceVib") set("pricevib", t.checked); else if (t.id === "sSound") { set("sound", t.checked); SOUND.play("ok"); }
       else if (t.id === "sCur") set("cur", t.value); else if (t.id === "sLocale") set("locale", t.value); else if (t.id === "sTab") set("tab", t.value);
       else if (t.id === "sAccent") { set("accent", t.value); render(); }
+      else if (t.dataset && t.dataset.wshow && window.SNEKLAYOUT) { const L = SNEKLAYOUT.get(), id = t.dataset.wshow; L.hidden = t.checked ? L.hidden.filter((x) => x !== id) : L.hidden.concat(id); SNEKLAYOUT.set(L); }
       else if (t.id === "sImport" && t.files[0]) { t.files[0].text().then((x) => { applyBundle(JSON.parse(x)); render(); toast("Settings imported"); }).catch((err) => toast("Import failed: " + err.message, "warn")); }
     });
     panel.addEventListener("input", (e) => { if (e.target.id === "sName") { S.name = e.target.value.slice(0, 40); save(); applyAll(); } });
