@@ -37,13 +37,13 @@
       if (s.ws || s.stopped || hidden()) return;
       let ws; try { ws = new WebSocket(url); } catch (e) { return s.later(); }
       s.ws = ws;
-      ws.onopen = () => { s.retry = 0; s.up = true; try { onopen(ws); } catch (e) {} if (ping) s.pi = setInterval(() => { try { ws.send(ping()); } catch (e) {} }, 20000); emit("venue"); };
-      ws.onmessage = (e) => { s.last = now(); s.msgs++; let d; try { d = JSON.parse(e.data); } catch (x) { return; } try { onmsg(d); } catch (x) {} };
-      ws.onclose = () => { clearInterval(s.pi); s.ws = null; s.up = false; emit("venue"); if (!s.stopped) s.later(); };
+      ws.onopen = () => { if (s.ws !== ws) { try { ws.close(); } catch (e) {} return; } s.retry = 0; s.up = true; try { onopen(ws); } catch (e) {} if (ping) s.pi = setInterval(() => { try { ws.send(ping()); } catch (e) {} }, 20000); emit("venue"); };
+      ws.onmessage = (e) => { if (s.ws !== ws) return; s.last = now(); s.msgs++; let d; try { d = JSON.parse(e.data); } catch (x) { return; } try { onmsg(d); } catch (x) {} };
+      ws.onclose = () => { if (s.ws !== ws) return; clearInterval(s.pi); s.ws = null; s.up = false; emit("venue"); if (!s.stopped) s.later(); };
       ws.onerror = () => note(name + " socket error");
     };
     s.later = () => { clearTimeout(s.tm); const d = Math.min(60000, 2000 * Math.pow(2, s.retry++)); s.tm = setTimeout(s.open, d); };
-    s.start = () => { s.stopped = false; s.open(); };
+    s.start = () => { s.stopped = false; s.retry = 0; clearTimeout(s.tm); s.open(); };
     s.stop = () => { s.stopped = true; clearTimeout(s.tm); clearInterval(s.pi); if (s.ws) { try { s.ws.close(); } catch (e) {} } s.ws = null; s.up = false; };
     L.socks[name] = s; return s;
   }
