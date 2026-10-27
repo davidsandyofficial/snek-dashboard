@@ -573,7 +573,26 @@
     let deferred = null;
     window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; $("installBtn").hidden = false; });
     $("installBtn").addEventListener("click", () => { if (deferred) { deferred.prompt(); deferred = null; $("installBtn").hidden = true; } });
-    if ("serviceWorker" in navigator && HTTP) navigator.serviceWorker.register("sw.js").catch(() => {});
+    if ("serviceWorker" in navigator && HTTP) {
+      // New deploys: sw.js skips waiting and claims clients; when a new worker takes over we offer a one-tap reload,
+      // and reload by ourselves if the tab is in the background or idle (never mid-drag, mid-edit or while typing).
+      const hadController = !!navigator.serviceWorker.controller; let reloading = false;
+      const busy = () => document.body.classList.contains("dragging") || document.body.classList.contains("editing") || (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) || document.querySelector(".snakegame");
+      const doReload = () => { if (reloading) return; reloading = true; location.reload(); };
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController || reloading) return;
+        if (document.visibilityState === "hidden") { doReload(); return; }
+        let bar = document.getElementById("updBar");
+        if (!bar) { bar = document.createElement("div"); bar.id = "updBar"; bar.className = "updbar"; bar.setAttribute("role", "status"); bar.innerHTML = '<span>✨ A new version of the dashboard is ready</span><button type="button" class="btn primary">Reload</button>'; document.body.appendChild(bar); bar.querySelector("button").addEventListener("click", doReload); requestAnimationFrame(() => bar.classList.add("show")); }
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") doReload(); });
+        setTimeout(function idle() { if (busy()) setTimeout(idle, 15000); else doReload(); }, 60000);
+      });
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
+        const check = () => reg.update().catch(() => {});
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
+        setInterval(check, 15 * 60000);
+      }).catch(() => {});
+    }
   }
   function copy(text, msg) {
     const done = () => toast(msg);

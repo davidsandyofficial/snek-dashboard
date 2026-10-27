@@ -28,6 +28,7 @@ Tap **ƒx Indicators** above the chart. Overlays: SMA ×2, EMA ×2 (periods conf
 
 ## Customizable layout
 
+- **Grab the ⠿ grip** in any card header (it isn't shown on pinned cards) to drag straight away with mouse or touch. With a mouse you can also grab the card title. While you drag, every valid drop spot gets a dashed outline, the spot you're over glows, and pinned cards are marked "can't drop here".
 - **Press and hold any card** (about 0.4 s on touch, 0.3 s with a mouse) on a non-interactive spot such as its title, then drag it to a new place. No edit mode needed. Buttons, inputs, links, tables, lists and the chart canvas are excluded, so scrolling and chart panning work as before. Pinned cards stay put. You get a short vibration where supported, a lifted card, a "Drop here" placeholder and an Undo toast.
 
 Every card is a widget. Tap **▦** in the header (or **Customize layout** at the bottom) to edit:
@@ -80,3 +81,7 @@ Fan-made community dashboard by David Sandy. Not affiliated with or endorsed by 
 ## Effects
 
 The hero and wallet search have animated gradient borders. The header and bars use glass blur. With a mouse, cards get a spotlight and a slight 3D tilt (small cards only). Other effects: a scroll-progress bar, a parallax hero glow, a sliding tab indicator, panes that fade in, confetti the first time you track a wallet, and an easter egg: tap the logomark 5 times for a tiny snake game. Under `prefers-reduced-motion` all of these are switched off or made static. Every scroll and pointer handler is passive and throttled with requestAnimationFrame.
+
+## Updates
+
+`sw.js` skips waiting and claims open pages, and it is checked for updates whenever the tab becomes visible and every 15 minutes. When a new version takes over, a "Reload" bar appears. The page also reloads by itself when the tab goes to the background, or after a minute of idle time (it never does this mid-drag, while the layout editor is open, or while you're typing).

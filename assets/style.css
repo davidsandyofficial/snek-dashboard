@@ -227,7 +227,7 @@ body.editing .fab-pill{display:none!important}
 .wkebab span{display:block;transform:translateY(-3px)}
 .w:hover>.wkebab,.wkebab:focus-visible,.wkebab[aria-expanded=true]{opacity:1;background:var(--card2);border-color:var(--line)}
 body.editing .wkebab{display:none}
-.wgrid>.w>.row:first-child,.wgrid>.w>h2:first-child,.wgrid>.w.hero>div:first-child:not(.wctl){padding-right:34px}
+.wgrid>.w>.row:first-child,.wgrid>.w>h2:first-child,.wgrid>.w.hero>div:first-child:not(.wctl){padding-right:74px}
 .wmenu{position:fixed;z-index:80;min-width:210px;padding:6px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 14px 40px rgba(0,0,0,.4);opacity:0;transform:translateY(-4px) scale(.98);transform-origin:top right;transition:opacity .14s,transform .14s}
 .wmenu.open{opacity:1;transform:none}
 .wmenu .wmh{font-size:12px;color:var(--muted);padding:6px 10px 4px}
@@ -391,3 +391,27 @@ body.editing .card.tilt,body.dragging .card.tilt{transform:none}
   .wpane.in,.rbar i,.dseg,.tabs a.on span{animation:none!important}
   .tabs::after{transition:none}.hero::before{transform:none}.card{transition:none}
 }
+
+/* always-visible drag grip (instant drag on mouse and touch; no edit mode) */
+.wgrip{position:absolute;top:8px;right:46px;z-index:3;width:32px;height:36px;display:grid;place-items:center;border-radius:10px;color:var(--muted);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;opacity:.7;transition:opacity .15s,background .15s,color .15s}
+.wgrip:hover,.w:hover>.wgrip{opacity:1;background:var(--card2);color:var(--snek)}
+.wgrip:active{cursor:grabbing;transform:scale(.92)}
+.pinned>.wgrip,body.editing .wgrip{display:none}
+.wgrid>.w.pinned>.row:first-child,.wgrid>.w.pinned>h2:first-child{padding-right:34px}
+@media(pointer:fine){body:not(.editing) .wgrid>.w:not(.pinned)>h2,body:not(.editing) .wgrid>.w:not(.pinned)>.row:first-child h2,body:not(.editing) .wgrid>.w:not(.pinned)>.row:first-child h3{cursor:grab;user-select:none}}
+.updbar{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;z-index:120;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:14px;background:var(--card);border:1px solid var(--snek);box-shadow:0 12px 30px rgba(0,0,0,.4);font-size:14px;transition:transform .3s,opacity .3s;width:max-content;max-width:92vw}
+.updbar.show{transform:translate(-50%,0);opacity:1}
+.updbar .btn{min-height:36px}
+@media(min-width:900px){.updbar{bottom:24px}}
+.wgrip::before{content:"";width:10px;height:16px;background:radial-gradient(circle,currentColor 1.7px,transparent 2.1px) 0 0/5px 5.33px;opacity:.95}
+@media(pointer:coarse){.wgrip{opacity:.9;color:color-mix(in srgb,var(--snek) 55%,var(--muted))}}
+/* drop slots while dragging */
+body.dragging .wgrid>.w:not(.wghost):not(.pinned){outline:2px dashed color-mix(in srgb,var(--snek) 45%,transparent);outline-offset:3px;animation:dropPulse 1.4s ease-in-out infinite}
+@keyframes dropPulse{50%{outline-color:color-mix(in srgb,var(--snek) 90%,transparent);box-shadow:0 0 18px var(--glow)}}
+body.dragging .wgrid>.w.wtarget{outline:3px solid var(--snek)!important;outline-offset:3px;box-shadow:0 0 0 6px var(--glow),0 0 32px color-mix(in srgb,var(--snek) 45%,transparent)!important;animation:none}
+body.dragging .wgrid>.w.pinned{outline:2px dashed color-mix(in srgb,var(--red) 65%,transparent);outline-offset:3px;opacity:.55;cursor:no-drop!important}
+body.dragging .wgrid>.w.pinned::after{display:flex!important;content:"📌 Pinned · can’t drop here";position:absolute;inset:auto 10px 10px auto;padding:4px 10px;border-radius:999px;background:var(--card2);border:1px solid color-mix(in srgb,var(--red) 60%,transparent);color:var(--red);font-size:12px;font-weight:700;opacity:1;width:auto;height:auto;z-index:4}
+body.dragging .wgrid>.w.wnodrop{opacity:.4}
+body.dragging .wghost{animation:ghostPulse 1s ease-in-out infinite}
+@keyframes ghostPulse{50%{background:color-mix(in srgb,var(--snek) 20%,transparent)!important}}
+@media(prefers-reduced-motion:reduce){body.dragging .wgrid>.w,body.dragging .wghost{animation:none!important}}

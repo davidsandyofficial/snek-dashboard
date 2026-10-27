@@ -102,6 +102,8 @@
     if (w.querySelector(":scope > .wkebab")) return;
     const b = document.createElement("button"); b.type = "button"; b.className = "wkebab"; b.setAttribute("aria-label", "Options for " + w.dataset.title); b.setAttribute("aria-haspopup", "menu"); b.innerHTML = "<span>⋯</span>";
     w.appendChild(b);
+    const g = document.createElement("span"); g.className = "wgrip"; g.setAttribute("aria-hidden", "true"); g.title = "Drag to move · or use ⋯ for Move up/down";
+    w.appendChild(g);
   }
   let menu = null, menuFor = null;
   function openMenu(btn) {
@@ -183,19 +185,29 @@
   // ---------- drag to reorder: always on (press and hold anywhere non-interactive on a card), plus edit-mode bars ----------
   const NO_DRAG = "a,button,input,select,textarea,label,summary,details,canvas,svg,img,video,iframe,[contenteditable],[role=button],[role=tab],[data-nodrag]," +
     "#tvchart,.chartbox,.table-wrap,table,.treemap,.seg,.chips,.wkebab,.wmenu,.wvalchart,.wlist,.wfeed,.tline,.wtx,.hchips,.pinned,.whid,.wb";
+  // The ⠿ grip (any pointer) and, with a mouse, the card title start a drag instantly; anywhere else needs a press-and-hold.
+  const TITLE = ".w > h2, .w > .row:first-child h2, .w > .row:first-child h3";
+  const holdDelay = () => (matchMedia("(pointer: coarse)").matches ? 400 : 300);
+  const instantStart = (e) => {
+    if (!sortable || editing) return;
+    const t = e.target, mouse = e.type === "mousedown" || e.pointerType === "mouse";
+    const fast = !!(t.closest && (t.closest(".wgrip") || (mouse && t.closest(TITLE) && !t.closest("a,button,input,select,label"))));
+    sortable.option("delay", fast ? 0 : holdDelay());
+  };
+  ["pointerdown", "mousedown", "touchstart"].forEach((ev) => grid.addEventListener(ev, instantStart, { capture: true, passive: true }));
   function sortMode(edit) {
     if (!window.Sortable) return;
-    const opts = edit ? { handle: ".wctl", filter: ".wb,.pinned", delay: 180, delayOnTouchOnly: true } : { handle: null, filter: NO_DRAG, delay: matchMedia("(pointer: coarse)").matches ? 400 : 300, delayOnTouchOnly: false };
+    const opts = edit ? { handle: ".wctl", filter: ".wb,.pinned", delay: 180, delayOnTouchOnly: true } : { handle: null, filter: NO_DRAG, delay: holdDelay(), delayOnTouchOnly: false };
     if (!sortable) {
       sortable = Sortable.create(grid, Object.assign({
         draggable: ".w", preventOnFilter: false, touchStartThreshold: 6, animation: reduced() ? 0 : 200, easing: "cubic-bezier(.2,.8,.2,1)",
         ghostClass: "wghost", chosenClass: "wchosen", dragClass: "wdrag", forceFallback: true, fallbackTolerance: 3, fallbackOnBody: true,
         scroll: true, scrollSensitivity: 90, bubbleScroll: true,
-        onMove: (ev) => !ev.related.classList.contains("pinned"),
+        onMove: (ev) => { const r = ev.related, bad = r.classList.contains("pinned"); grid.querySelectorAll(".wtarget,.wnodrop").forEach((x) => x !== r && x.classList.remove("wtarget", "wnodrop")); if (r !== ev.dragged) r.classList.add(bad ? "wnodrop" : "wtarget"); return !bad; },
         onChoose: (ev) => { haptic(15); ev.item.classList.add("wlift"); closeMenu(); hideCoach(); },
         onUnchoose: (ev) => ev.item.classList.remove("wlift"),
         onStart: () => { snap(); document.body.classList.add("dragging"); try { getSelection().removeAllRanges(); } catch (e) {} },
-        onEnd: (ev) => { document.body.classList.remove("dragging"); ev.item.classList.remove("wlift"); const now = all().map((w) => w.dataset.w); if (JSON.stringify(now) === JSON.stringify(L.order)) { undoStack.pop(); return; } L.order = now; save(); apply(); haptic(8); undoToast("Moved " + title(ev.item.dataset.w)); },
+        onEnd: (ev) => { document.body.classList.remove("dragging"); ev.item.classList.remove("wlift"); grid.querySelectorAll(".wtarget,.wnodrop").forEach((x) => x.classList.remove("wtarget", "wnodrop")); const now = all().map((w) => w.dataset.w); if (JSON.stringify(now) === JSON.stringify(L.order)) { undoStack.pop(); return; } L.order = now; save(); apply(); haptic(8); undoToast("Moved " + title(ev.item.dataset.w)); },
       }, opts));
     } else Object.keys(opts).forEach((k) => sortable.option(k, opts[k]));
     sortable.option("disabled", false);
