@@ -101,7 +101,7 @@ A draggable "Portfolio history" widget shows the wallet you looked up, or one yo
 - **No interpolation:** days without prices stay empty and are listed as gaps, and the covered date range is always shown.
 
 ## Settings (⚙ in the header, the "," key, or ⋯ → Settings)
-- Look: Dark, Light, OLED black or SNEK green theme (◐ cycles them), accent color presets plus a custom picker, compact/comfy density, text size S–XL, optional background art from the official SNEK media kit, effects/animations on/off, soft sounds on/off (off by default).
+- Look: Dark, Light, OLED black or SNEK green theme (◐ cycles them), accent color presets plus a custom picker, compact/comfy density, text size S–XL, optional background art from the official SNEK media kit, effects/animations on/off, soft sounds on/off (off by default), "Vibrate on price moves" (off by default; drag and drop haptics stay on).
 - Numbers: currency USD, ADA (live ADA/USD) or EUR, GBP, JPY, CAD, AUD, CHF, INR, BRL, KRW, MXN (ECB rates from the keyless Frankfurter API, cached 12 h; values fall back to USD if rates are unavailable), compact or full numbers, separator style.
 - Dashboard: custom name in the header (the fan-made label always stays), the tab to open on.
 - Saved layouts: keep up to 12 named layouts and switch with one tap.

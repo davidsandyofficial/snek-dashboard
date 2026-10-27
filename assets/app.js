@@ -372,7 +372,7 @@
   function checkAlerts() {
     const p = state.market && state.market.price; if (!ok(p) || !alerts.length) return;
     const hit = alerts.filter((a) => (a.dir === "above" ? p >= a.price : p <= a.price)); if (!hit.length) return;
-    if (FX) FX.haptic([30, 60, 30, 60, 30]);
+    if (FX) (FX.priceHaptic || FX.haptic)([30, 60, 30, 60, 30]);
     hit.forEach((a) => {
       const msg = "SNEK is " + a.dir + " $" + a.price + " (now $" + Number(Number(p).toPrecision(4)) + ")";
       toast("🔔 " + msg + " · fan-made alert");

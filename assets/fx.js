@@ -10,6 +10,10 @@
 
   // ---- haptics ----
   // Only after the user has interacted (browsers block vibrate before a tap); silently skipped on iOS/desktop.
+  // Price-driven vibration (live price ticks/flashes, price alerts) is OFF unless Settings → "Vibrate on price moves" is on.
+  // Drag/drop and other interaction haptics are unaffected.
+  const priceVibOn = () => { try { return (JSON.parse(localStorage.getItem("snek-settings") || "{}") || {}).pricevib === true; } catch (e) { return false; } };
+  FX.priceHaptic = (p) => { if (priceVibOn()) FX.haptic(p); };
   FX.haptic = (p) => { try { const ua = navigator.userActivation; if (!reduced() && navigator.vibrate && (!ua || ua.hasBeenActive)) navigator.vibrate(p || 8); } catch (e) {} };
 
   // ---- toasts (stacked, typed) ----
@@ -46,7 +50,7 @@
       const up = value > prev;
       el.classList.remove("flash-up", "flash-down"); void el.offsetWidth;
       el.classList.add(up ? "flash-up" : "flash-down");
-      if (el.id === "price") FX.haptic(5);
+      if (el.id === "price") FX.priceHaptic(5);
     }
   };
 
