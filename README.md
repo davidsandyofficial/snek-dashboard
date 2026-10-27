@@ -20,12 +20,12 @@ Live, mobile-first dashboard for SNEK, the Cardano memecoin. Static site, hosted
 | Headline SNEK price (USD) | On-chain SNEK/ADA from DexHunter's public `averagePrice` API (DexScreener fallback) × live ADA/USD | SNEK/ADA polled every 4 s (moves once per Cardano block, ~20 s); ADA/USD real-time; screen redraws at most once per second |
 | ADA/USD | Kraken WebSocket v2 (best bid/offer) and Coinbase Exchange WebSocket ticker; Coinbase REST fallback | real-time (REST fallback every 10 s only when the sockets are quiet for 20 s) |
 | SNEK on centralised exchanges | Kraken (SNEK/USD), Gate (SNEK/USDT), Bitget (SNEK/USDT) public WebSockets: ticker + trades | real-time |
-| On-chain DEX trades | DexHunter public global-orders feed (all DEXes it indexes) plus GeckoTerminal (main pool) | DexHunter every 5 s; GeckoTerminal every 60 s |
+| On-chain DEX trades | DexHunter public global-orders feed (all DEXes it indexes) plus GeckoTerminal (main pool) | DexHunter every 5 s; GeckoTerminal every 5 min as a cross-check |
 | Market cap, FDV, 24h change | CoinGecko, rescaled by the live price between refreshes | CoinGecko every 60 s |
 | Pools, venues | GeckoTerminal / CoinGecko | pools every 5 min; venues every 60 s |
 | Candles (last candle) | GeckoTerminal | every 60 s (GeckoTerminal caches responses for 1 min) |
 
-All feeds are keyless and free. They pause while the tab is hidden and resume when you return. Every REST source has exponential backoff, and WebSockets reconnect with backoff (2 s up to 60 s). Requests per visitor stay well under each source's free limit: GeckoTerminal about 2–3/min, hard-capped at 7 per rolling minute (keyless limit ~10/min per IP), CoinGecko 2/min, DexHunter about 27/min, DexScreener 0 (fallback only; limit 300/min), Coinbase REST 0–6/min.
+All feeds are keyless and free. They pause while the tab is hidden and resume when you return. Every REST source has exponential backoff, and WebSockets reconnect with backoff (2 s up to 60 s). Requests per visitor stay well under each source's free limit: GeckoTerminal about 1.4/min, spaced at least 4 s apart and hard-capped at 7 per rolling minute (keyless limit ~10/min per IP), CoinGecko 2/min, DexHunter about 27/min, DexScreener 0 (fallback only; limit 300/min), Coinbase REST 0–6/min.
 | Address balance lookup | Koios API, in the browser | on demand |
 | Holders (count, tiers, top wallets, concentration) | Cardanoscan public page, via GitHub Actions | workflow every 30 min; page re-checks `assets/snapshot.json` every 5 min |
 | Offline fallback (`assets/snapshot.js`) | all of the above, via GitHub Actions | every 30 min |

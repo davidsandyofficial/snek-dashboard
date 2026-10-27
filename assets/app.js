@@ -61,7 +61,7 @@
       if (Date.now() < gtPauseUntil) return Promise.reject(new Error("rate limited, retrying shortly"));
       if (document.visibilityState === "hidden") return Promise.reject(new Error("paused while hidden"));
       while (gtWin.length && Date.now() - gtWin[0] > 60000) gtWin.shift();
-      const wait = Math.max(0, gtLast + 1500 - Date.now(), gtWin.length >= 7 ? gtWin[0] + 60000 - Date.now() : 0);
+      const wait = Math.max(0, gtLast + 4000 - Date.now(), gtWin.length >= 7 ? gtWin[0] + 60000 - Date.now() : 0);
       if (wait > 20000) return Promise.reject(new Error("GeckoTerminal budget used, skipping"));
       return new Promise((r) => setTimeout(r, wait)).then(() => { gtLast = Date.now(); gtWin.push(gtLast); store.set("snek-gtwin", gtWin); STATS.gtCalls++; return getJSON(GT + path); })
         .catch((e) => { gtPauseUntil = Date.now() + 60000; throw e; });
@@ -465,8 +465,8 @@
   function refresh(full) {
     if (busy) return Promise.resolve(); busy = true;
     const t = state.tick++; // 5 s ticks. GeckoTerminal's keyless API allows ~10 calls/min and caches responses for 1 min, so it is polled sparingly
-    // (trades 60 s, last candle 60 s, pools 5 min = ~2.2 calls/min); DexHunter's order feed carries the 5 s on-chain trade cadence.
-    const doMarket = full || t % 12 === 0; const doPools = full || t % 60 === 9; const doCandle = full || t % 12 === 3; const doGT = full || t % 12 === 7; const doDH = true;
+    // (last candle 60 s, trades and pools 5 min = ~1.4 calls/min, calls spaced ≥4 s); DexHunter's order feed carries the 5 s on-chain trade cadence.
+    const doMarket = full || t % 12 === 0; const doPools = full || t % 60 === 9; const doCandle = full || t % 12 === 3; const doGT = full || t % 60 === 39; const doDH = true;
     const pMarket = !doMarket ? Promise.resolve() : Promise.all([
       getJSON(CG + "/coins/snek?localization=false&tickers=true&market_data=true&community_data=false&developer_data=false"),
       getJSON(CG + "/simple/price?ids=cardano&vs_currencies=usd").catch(() => null)
