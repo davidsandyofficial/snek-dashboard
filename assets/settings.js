@@ -6,7 +6,7 @@
   const KEY = "snek-settings", PKEY = "snek-profiles";
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const DEF = { theme: "dark", accent: "", density: "comfy", fs: "m", bg: "none", cur: "USD", numfmt: "compact", locale: "en-US", tab: "overview", fx: true, sound: false, haptics: false, name: "" };
+  const DEF = { theme: "dark", accent: "", density: "comfy", fs: "m", bg: "none", cur: "USD", numfmt: "compact", locale: "en-US", tab: "overview", fx: true, sound: false, name: "" };
   const get = () => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { return Object.assign({}, DEF); } };
   let S = get();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem("snek-theme", S.theme); } catch (e) {} };
@@ -106,7 +106,6 @@
       row("Text size", seg("fs", [["s", "S"], ["m", "M"], ["l", "L"], ["xl", "XL"]], S.fs)) +
       row("Background art", seg("bg", BGS, S.bg), "Official SNEK media-kit art") +
       row("Effects & animations", '<label class="tgl"><input type="checkbox" id="sFx"' + (S.fx ? " checked" : "") + "><span></span></label>", "Off = no motion, glow or confetti") +
-      row("Haptics", '<label class="tgl"><input type="checkbox" id="sHaptics"' + (S.haptics ? " checked" : "") + "><span></span></label>", "Phone vibration on drag, drop and alerts · off by default") +
       row("Sound", '<label class="tgl"><input type="checkbox" id="sSound"' + (S.sound ? " checked" : "") + "><span></span></label>", "Soft blips for alerts and whale moves") +
       '<h4>Numbers</h4>' +
       row("Currency", '<select id="sCur">' + CURS.map((c) => '<option value="' + c[0] + '"' + (S.cur === c[0] ? " selected" : "") + ">" + c[0] + "</option>").join("") + "</select>", "Fiat via ECB rates (Frankfurter), ADA via live ADA/USD") +
@@ -146,7 +145,7 @@
     });
     panel.addEventListener("change", (e) => {
       const t = e.target;
-      if (t.id === "sFx") set("fx", t.checked); else if (t.id === "sHaptics") set("haptics", t.checked); else if (t.id === "sSound") { set("sound", t.checked); SOUND.play("ok"); }
+      if (t.id === "sFx") set("fx", t.checked); else if (t.id === "sSound") { set("sound", t.checked); SOUND.play("ok"); }
       else if (t.id === "sCur") set("cur", t.value); else if (t.id === "sLocale") set("locale", t.value); else if (t.id === "sTab") set("tab", t.value);
       else if (t.id === "sAccent") { set("accent", t.value); render(); }
       else if (t.id === "sImport" && t.files[0]) { t.files[0].text().then((x) => { applyBundle(JSON.parse(x)); render(); toast("Settings imported"); }).catch((err) => toast("Import failed: " + err.message, "warn")); }

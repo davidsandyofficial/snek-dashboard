@@ -26,7 +26,7 @@
   let L = load() || blank();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(L)); } catch (e) {} };
   const toast = (m) => (window.SNEKAPP && window.SNEKAPP.toast ? window.SNEKAPP.toast(m) : null);
-  const haptic = (n) => { try { if (window.SNEKFX && SNEKFX.haptic) SNEKFX.haptic(n); } catch (e) {} }; // off unless Settings → Haptics is on
+  const haptic = (n) => { try { window.SNEKFX && SNEKFX.haptic ? SNEKFX.haptic(n) : navigator.vibrate && navigator.vibrate(n); } catch (e) {} };
   const title = (id) => (byId(id) ? byId(id).dataset.title : id);
 
   // ---------- presets ----------
