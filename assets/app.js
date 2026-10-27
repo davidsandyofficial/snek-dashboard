@@ -466,8 +466,8 @@
     if (busy) return Promise.resolve(); busy = true;
     const t = state.tick++; // 5 s ticks. GeckoTerminal's keyless API allows ~10 calls/min and caches responses for 1 min, so it is polled sparingly
     // (last candle 60 s, trades and pools 5 min = ~1.4 calls/min, calls spaced ≥4 s); DexHunter's order feed carries the 5 s on-chain trade cadence.
-    // On page load, pools and trades come from the 30-min snapshot + DexHunter, so the only GeckoTerminal call at load is the candle history.
-    const snapFresh = SNAP && SNAP.asOf && Date.now() - new Date(SNAP.asOf).getTime() < 3600000;
+    // On page load, pools and trades come from the snapshot (if under 6 h old) + DexHunter, so the only GeckoTerminal call at load is the candle history.
+    const snapFresh = SNAP && SNAP.asOf && Date.now() - new Date(SNAP.asOf).getTime() < 21600000;
     const doMarket = full || t % 12 === 0; const doPools = (full && !snapFresh) || t % 60 === 9; const doCandle = full || t % 12 === 3; const doGT = (full && !snapFresh) || t % 60 === 39; const doDH = true;
     if (full && snapFresh && t === 0) { state.live.pools = true; state.tradeLive.gt = true; }
     const pMarket = !doMarket ? Promise.resolve() : Promise.all([
