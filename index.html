@@ -25,7 +25,7 @@
   <div class="ticker" aria-live="polite"><span id="tSpark" class="spark"></span><div class="tcol"><span id="tPrice" class="skel w80">&nbsp;</span><span id="tChg" class="chg"></span></div></div>
   <div class="actions">
     <button id="shareBtn" class="icon-btn" aria-label="Share" title="Share">↗</button>
-    <button id="layoutBtn" class="icon-btn" aria-label="Customize layout" title="Customize layout">▦</button>
+    <button id="layoutBtn" class="pill-btn" type="button" title="Customize layout: drag, pin, hide widgets or pick a preset"><span aria-hidden="true">✎</span><span>Customize</span></button>
     <button id="themeBtn" class="icon-btn" aria-label="Toggle light or dark theme" title="Theme">◐</button>
     <button id="refreshBtn" class="icon-btn" aria-label="Refresh now" title="Refresh">⟳</button>
   </div>
@@ -202,7 +202,8 @@
         <button id="installBtn" class="btn primary mt" hidden>Install app</button>
       </div>
 </main>
-<div class="layoutbar"><button id="layoutBtn2" class="btn" type="button">▦ Customize layout</button></div>
+<div class="layoutbar"><button id="layoutBtn2" class="btn" type="button">✎ Customize layout</button></div>
+<button id="layoutFab" class="fab-pill" type="button" aria-label="Customize layout"><span aria-hidden="true">✎</span> Customize</button>
 
 <footer class="muted small">
   <p>Live in your browser (all keyless, paused while the tab is hidden): SNEK/ADA from DexHunter (every 4 s, DexScreener fallback) × real-time ADA/USD from Kraken and Coinbase WebSockets; SNEK ticks and trades from Kraken, Gate and Bitget WebSockets; on-chain trades from DexHunter (every 5 s) and GeckoTerminal (every 5 min, cross-check); market stats from CoinGecko (every 60 s); pools (every 5 min) and candles (every 60 s) from GeckoTerminal; wallet tracker: Yoroi’s public wallet backend (balances, staking) and Handle.me (ADA Handles), keyless; top-holder details from Koios via the scheduled GitHub Action. Holder data: Cardanoscan, refreshed by a scheduled GitHub Action and re-checked here every 5 minutes.</p>

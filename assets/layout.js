@@ -1,31 +1,52 @@
-/* Movable widgets: reorder (drag handle or ↑/↓), pin to top, resize (wide screens), hide/show, reset.
-   Layout is saved only in this browser (localStorage "snek-layout"). Drag uses SortableJS (MIT). */
+/* Movable widgets. Every card is a widget with a ⋯ menu (pin, move, width, hide) that works without edit mode.
+   "Customize" opens edit mode: long-press or drag the bar to move (SortableJS, MIT), ↑/↓ buttons, presets,
+   hidden-widget tray, undo, reset. Saved only in this browser (localStorage "snek-layout"). */
 (function () {
   "use strict";
-  const KEY = "snek-layout", SIZES = [4, 6, 8, 12], SIZE_NAMES = { 4: "⅓", 6: "½", 8: "⅔", 12: "Full" };
+  const KEY = "snek-layout", COACH = "snek-coach", SIZES = [4, 6, 8, 12], SIZE_NAMES = { 4: "⅓", 6: "½", 8: "⅔", 12: "Full" };
   const grid = document.getElementById("wgrid"); if (!grid) return;
   const all = () => [...grid.querySelectorAll(":scope > .w")];
   const byId = (id) => grid.querySelector(':scope > .w[data-w="' + id + '"]');
   const DEFAULT = all().map((w) => w.dataset.w);
   const DEFSIZE = {}; all().forEach((w) => (DEFSIZE[w.dataset.w] = +w.dataset.size || 12));
+  const wide = () => innerWidth >= 900;
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const load = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && v.v === 1 ? v : null; } catch (e) { return null; } };
   const blank = () => ({ v: 1, order: DEFAULT.slice(), pinned: [], hidden: [], size: {} });
   let L = load() || blank();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(L)); } catch (e) {} };
   const toast = (m) => (window.SNEKAPP && window.SNEKAPP.toast ? window.SNEKAPP.toast(m) : null);
-  const haptic = (n) => { try { window.FX && FX.haptic ? FX.haptic(n) : navigator.vibrate && navigator.vibrate(n); } catch (e) {} };
+  const haptic = (n) => { try { window.SNEKFX && SNEKFX.haptic ? SNEKFX.haptic(n) : navigator.vibrate && navigator.vibrate(n); } catch (e) {} };
+  const title = (id) => (byId(id) ? byId(id).dataset.title : id);
+
+  // ---------- presets ----------
+  const PRESETS = {
+    trader: { name: "Trader", icon: "📈", desc: "Chart, live prices, trades and whale feed first", order: ["chart", "price", "venues", "trades", "wfeed", "liquidity", "volume", "alerts", "stats"], pinned: ["chart"], hidden: ["calc", "links", "follow"], size: { price: 6, venues: 6 } },
+    holder: { name: "Holder", icon: "💎", desc: "Price, your portfolio, alerts and holder stats", order: ["price", "portfolio", "alerts", "stats", "holders", "chart", "calc", "wtop"], pinned: ["price"], hidden: ["trades", "volume", "liquidity", "venues"], size: {} },
+    watcher: { name: "Wallet watcher", icon: "🔎", desc: "Wallet tracker, your watchlist and whale moves", order: ["wsearch", "watch", "wfeed", "wtop", "price", "holders", "chart"], pinned: ["wsearch"], hidden: ["calc", "venues", "volume", "portfolio"], size: { wsearch: 8, watch: 4 } },
+  };
+  function applyPreset(k) {
+    const P = PRESETS[k]; if (!P) return; snap();
+    const known = new Set(DEFAULT), first = P.order.filter((x) => known.has(x));
+    L = { v: 1, order: first.concat(DEFAULT.filter((x) => !first.includes(x))), pinned: P.pinned.slice(), hidden: P.hidden.filter((x) => known.has(x)), size: Object.assign({}, P.size), preset: k };
+    save(); apply(true); undoToast(P.icon + " " + P.name + " layout applied"); haptic(10);
+    window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" });
+  }
 
   function normalize() {
     const known = new Set(DEFAULT);
     let order = (L.order || []).filter((id, i, a) => known.has(id) && a.indexOf(id) === i);
-    DEFAULT.forEach((id, i) => { if (!order.includes(id)) order.splice(Math.min(i, order.length), 0, id); }); // new widgets keep their default slot
+    DEFAULT.forEach((id, i) => { if (!order.includes(id)) order.splice(Math.min(i, order.length), 0, id); });
     L.pinned = (L.pinned || []).filter((id) => known.has(id));
     L.hidden = (L.hidden || []).filter((id) => known.has(id));
     L.size = L.size || {};
     L.order = L.pinned.concat(order.filter((id) => !L.pinned.includes(id)));
   }
-  function apply() {
+  // FLIP animation so widgets glide to their new spot
+  function apply(animate) {
     normalize();
+    const first = animate && !reduced() ? new Map(all().map((w) => [w, w.getBoundingClientRect()])) : null;
     L.order.forEach((id) => { const w = byId(id); if (w) grid.appendChild(w); });
     all().forEach((w) => {
       const id = w.dataset.w, sz = L.size[id] || DEFSIZE[id];
@@ -33,17 +54,87 @@
       w.classList.toggle("pinned", L.pinned.includes(id));
       w.classList.toggle("whid", L.hidden.includes(id));
       const c = w.querySelector(":scope > .wctl"); if (c) paintCtl(w, c);
+      kebabFor(w);
     });
+    if (first) all().forEach((w) => { const a = first.get(w); if (!a || w.classList.contains("whid")) return; const b = w.getBoundingClientRect(); const dx = a.left - b.left, dy = a.top - b.top; if (!dx && !dy) return; if (Math.abs(dy) > innerHeight * 1.5) return; w.animate([{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" }); });
     renderTray();
   }
   const isDefault = () => JSON.stringify(L.order) === JSON.stringify(DEFAULT) && !L.pinned.length && !L.hidden.length && !Object.keys(L.size).length;
+
+  // ---------- undo ----------
+  const undoStack = [];
+  function snap() { undoStack.push(JSON.stringify(L)); if (undoStack.length > 30) undoStack.shift(); }
+  function undo() { const s = undoStack.pop(); if (!s) return; L = JSON.parse(s); save(); apply(true); hideUndo(); toast("Undone"); haptic(6); }
+  let ut = null;
+  function undoToast(msg) {
+    let el = document.getElementById("undoToast");
+    if (!el) { el = document.createElement("div"); el.id = "undoToast"; el.className = "utoast"; el.setAttribute("role", "status"); el.innerHTML = '<span class="um"></span><button type="button" class="ubtn">Undo</button>'; document.body.appendChild(el); el.querySelector(".ubtn").addEventListener("click", undo); }
+    el.querySelector(".um").textContent = msg; el.classList.add("show"); clearTimeout(ut); ut = setTimeout(hideUndo, 6000);
+  }
+  function hideUndo() { const el = document.getElementById("undoToast"); if (el) el.classList.remove("show"); }
+
+  // ---------- actions shared by the ⋯ menu and edit mode ----------
+  const shown = (id) => { const w = byId(id); return w && !L.hidden.includes(id) && !w.hidden; };
+  const visibleOrder = () => L.order.filter(shown);
+  function move(id, dir, quiet) {
+    const vis = visibleOrder(), i = vis.indexOf(id), j = i + dir; if (j < 0 || j >= vis.length) return false;
+    const pin = L.pinned.includes(id); if (pin !== L.pinned.includes(vis[j])) return false;
+    snap();
+    const a = L.order.indexOf(id), b = L.order.indexOf(vis[j]); L.order.splice(a, 1); L.order.splice(b, 0, id);
+    if (pin) L.pinned = L.order.filter((x) => L.pinned.includes(x));
+    save(); apply(true); haptic(6);
+    if (!quiet) undoToast("Moved " + title(id) + (dir < 0 ? " up" : " down"));
+    return true;
+  }
+  function togglePin(id) {
+    snap();
+    const was = L.pinned.includes(id);
+    if (was) L.pinned = L.pinned.filter((x) => x !== id); else L.pinned.push(id);
+    L.order = L.order.filter((x) => x !== id); L.order.splice(was ? L.pinned.length : L.pinned.length - 1, 0, id);
+    save(); apply(true); haptic(8); undoToast((was ? "Unpinned " : "📌 Pinned ") + title(id) + (was ? "" : " to the top"));
+  }
+  function cycleSize(id) { snap(); const cur = L.size[id] || DEFSIZE[id], nx = SIZES[(SIZES.indexOf(cur) + 1) % SIZES.length] || 12; if (nx === DEFSIZE[id]) delete L.size[id]; else L.size[id] = nx; save(); apply(true); undoToast(title(id) + " width: " + SIZE_NAMES[nx]); }
+  function hide(id) { snap(); L.hidden.push(id); save(); apply(true); haptic(8); undoToast("Hid " + title(id)); }
+  function show(id) { snap(); L.hidden = L.hidden.filter((x) => x !== id); save(); apply(true); const w = byId(id); if (w) w.scrollIntoView({ block: "center", behavior: reduced() ? "auto" : "smooth" }); haptic(6); }
+
+  // ---------- ⋯ menu on every widget (no edit mode needed) ----------
+  function kebabFor(w) {
+    if (w.querySelector(":scope > .wkebab")) return;
+    const b = document.createElement("button"); b.type = "button"; b.className = "wkebab"; b.setAttribute("aria-label", "Options for " + w.dataset.title); b.setAttribute("aria-haspopup", "menu"); b.innerHTML = "<span>⋯</span>";
+    w.appendChild(b);
+  }
+  let menu = null, menuFor = null;
+  function openMenu(btn) {
+    const w = btn.closest(".w"), id = w.dataset.w; closeMenu();
+    menu = document.createElement("div"); menu.className = "wmenu"; menu.setAttribute("role", "menu"); menuFor = id;
+    const vis = visibleOrder(), i = vis.indexOf(id), pin = L.pinned.includes(id), sz = L.size[id] || DEFSIZE[id];
+    const canUp = i > 0 && L.pinned.includes(vis[i - 1]) === pin, canDown = i < vis.length - 1 && L.pinned.includes(vis[i + 1]) === pin;
+    const item = (a, label, dis) => '<button type="button" role="menuitem" data-m="' + a + '"' + (dis ? " disabled" : "") + ">" + label + "</button>";
+    menu.innerHTML = '<div class="wmh">' + esc(w.dataset.title) + "</div>" + item("pin", pin ? "📌 Unpin" : "📌 Pin to top") + item("up", "↑ Move up", !canUp) + item("down", "↓ Move down", !canDown) + (wide() ? item("size", "↔ Width: " + SIZE_NAMES[sz] + " → " + SIZE_NAMES[SIZES[(SIZES.indexOf(sz) + 1) % SIZES.length]]) : "") + item("hide", "🙈 Hide") + '<div class="wmsep"></div>' + item("edit", "✎ Customize layout…");
+    document.body.appendChild(menu);
+    const r = btn.getBoundingClientRect(), mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let top = r.bottom + 6, left = Math.min(innerWidth - mw - 8, Math.max(8, r.right - mw));
+    if (top + mh > innerHeight - 70) top = Math.max(8, r.top - mh - 6);
+    menu.style.top = top + "px"; menu.style.left = left + "px";
+    requestAnimationFrame(() => menu && menu.classList.add("open"));
+    const f = menu.querySelector("button:not([disabled])"); if (f) f.focus();
+    btn.setAttribute("aria-expanded", "true"); menuY = scrollY;
+  }
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } document.querySelectorAll('.wkebab[aria-expanded="true"]').forEach((b) => b.setAttribute("aria-expanded", "false")); }
+  document.addEventListener("click", (e) => {
+    const k = e.target.closest(".wkebab"); if (k) { e.preventDefault(); if (menu && menuFor === k.closest(".w").dataset.w) closeMenu(); else openMenu(k); return; }
+    const m = e.target.closest(".wmenu [data-m]");
+    if (m) { const id = menuFor, a = m.dataset.m; closeMenu(); if (a === "pin") togglePin(id); else if (a === "up") move(id, -1); else if (a === "down") move(id, 1); else if (a === "size") cycleSize(id); else if (a === "hide") hide(id); else if (a === "edit") setEditing(true); return; }
+    if (menu && !e.target.closest(".wmenu")) closeMenu();
+  });
+  let menuY = 0; addEventListener("scroll", () => { if (menu && Math.abs(scrollY - menuY) > 40) closeMenu(); }, { passive: true });
 
   // ---------- edit mode ----------
   let editing = false, sortable = null, bar = null;
   function ctlFor(w) {
     let c = w.querySelector(":scope > .wctl"); if (c) return c;
     c = document.createElement("div"); c.className = "wctl";
-    c.innerHTML = '<span class="wh" aria-hidden="true" title="Drag to move">⠿</span><b class="wt"></b>' +
+    c.innerHTML = '<span class="wh" aria-hidden="true" title="Drag or long-press to move">⠿</span><b class="wt"></b>' +
       '<button type="button" class="wb" data-a="up" aria-label="Move up">↑</button>' +
       '<button type="button" class="wb" data-a="down" aria-label="Move down">↓</button>' +
       '<button type="button" class="wb wsz" data-a="size" aria-label="Change width"></button>' +
@@ -57,91 +148,109 @@
     const pb = c.querySelector('[data-a="pin"]'); pb.textContent = pinned ? "Unpin" : "Pin"; pb.setAttribute("aria-pressed", pinned); pb.setAttribute("aria-label", (pinned ? "Unpin " : "Pin to top: ") + w.dataset.title);
     const sb = c.querySelector('[data-a="size"]'); sb.textContent = SIZE_NAMES[sz] || sz; sb.title = "Width on wide screens";
     const vis = visibleOrder(), i = vis.indexOf(id), np = L.pinned.length;
-    c.querySelector('[data-a="up"]').disabled = pinned ? L.pinned.indexOf(id) === 0 : i <= 0 || vis[i - 1] && L.pinned.includes(vis[i - 1]);
+    c.querySelector('[data-a="up"]').disabled = pinned ? L.pinned.indexOf(id) === 0 : i <= 0 || (vis[i - 1] && L.pinned.includes(vis[i - 1]));
     c.querySelector('[data-a="down"]').disabled = pinned ? L.pinned.indexOf(id) === np - 1 : i === vis.length - 1;
   }
-  const shown = (id) => { const w = byId(id); return w && !L.hidden.includes(id) && !w.hidden; };
-  const visibleOrder = () => L.order.filter(shown);
-  function move(id, dir) {
-    const vis = visibleOrder(), i = vis.indexOf(id), j = i + dir; if (j < 0 || j >= vis.length) return;
-    const pin = L.pinned.includes(id); if (pin !== L.pinned.includes(vis[j])) return; // pinned and free widgets don't mix
-    const a = L.order.indexOf(id), b = L.order.indexOf(vis[j]); L.order.splice(a, 1); L.order.splice(b, 0, id);
-    if (pin) L.pinned = L.order.filter((x) => L.pinned.includes(x));
-    save(); apply(); haptic(6);
-    const w = byId(id); w.scrollIntoView({ block: "nearest", behavior: "smooth" }); const btn = w.querySelector('.wctl [data-a="' + (dir < 0 ? "up" : "down") + '"]'); if (btn && !btn.disabled) btn.focus(); else w.querySelector(".wctl .wb").focus();
-  }
-  function onCtl(e) {
+  grid.addEventListener("click", (e) => {
     const b = e.target.closest(".wctl .wb"); if (!b || !editing) return;
-    const w = b.closest(".w"), id = w.dataset.w, a = b.dataset.a;
-    if (a === "up" || a === "down") return move(id, a === "up" ? -1 : 1);
-    if (a === "pin") {
-      if (L.pinned.includes(id)) { L.pinned = L.pinned.filter((x) => x !== id); toast("Unpinned " + w.dataset.title); }
-      else { L.pinned.push(id); toast("Pinned " + w.dataset.title + " to the top"); }
-      L.order = L.order.filter((x) => x !== id); L.order.splice(L.pinned.includes(id) ? L.pinned.length - 1 : L.pinned.length, 0, id);
-    } else if (a === "size") {
-      const cur = L.size[id] || DEFSIZE[id], nx = SIZES[(SIZES.indexOf(cur) + 1) % SIZES.length] || 12;
-      if (nx === DEFSIZE[id]) delete L.size[id]; else L.size[id] = nx;
-    } else if (a === "hide") { L.hidden.push(id); toast("Hidden " + w.dataset.title + " · tap it under Hidden to bring it back"); }
-    save(); apply(); haptic(6);
-  }
+    const id = b.closest(".w").dataset.w, a = b.dataset.a;
+    if (a === "up" || a === "down") { move(id, a === "up" ? -1 : 1, true); const w = byId(id); const nb = w && w.querySelector('.wctl [data-a="' + a + '"]'); if (nb && !nb.disabled) nb.focus(); w && w.scrollIntoView({ block: "nearest", behavior: reduced() ? "auto" : "smooth" }); }
+    else if (a === "pin") togglePin(id); else if (a === "size") cycleSize(id); else if (a === "hide") hide(id);
+  });
   function renderTray() {
     if (!bar) return;
     const t = bar.querySelector(".ltray"), hid = L.hidden.filter((id) => byId(id));
-    t.innerHTML = hid.length ? '<span class="muted small">Hidden:</span> ' + hid.map((id) => '<button type="button" class="chip" data-show="' + id + '">+ ' + byId(id).dataset.title.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</button>").join("") : "";
+    t.innerHTML = hid.length ? '<span class="muted small">Hidden:</span> ' + hid.map((id) => '<button type="button" data-show="' + id + '">+ ' + esc(title(id)) + "</button>").join("") : "";
     t.hidden = !hid.length;
+    bar.querySelectorAll("[data-preset]").forEach((b) => b.classList.toggle("on", L.preset === b.dataset.preset && !isDefault()));
     bar.querySelector("#layoutReset").disabled = isDefault();
+    bar.querySelector("#layoutUndo").disabled = !undoStack.length;
   }
   function makeBar() {
     bar = document.createElement("div"); bar.className = "lbar"; bar.setAttribute("role", "toolbar"); bar.setAttribute("aria-label", "Layout editor");
-    bar.innerHTML = '<div class="lrow"><div class="grow"><b>Edit layout</b><div class="muted small">Drag ⠿ or use ↑ ↓ · Pin keeps a widget on top' + (innerWidth >= 900 ? " · ½ ⅔ changes width" : "") + '</div></div>' +
-      '<button type="button" class="btn" id="layoutReset">Reset</button><button type="button" class="btn primary" id="layoutDone">Done</button></div><div class="ltray chips" hidden></div>';
+    bar.innerHTML = '<div class="lrow"><div class="grow"><b>Customize layout</b><div class="muted small">' + (matchMedia("(pointer: coarse)").matches ? "Long-press a bar to drag, or tap ↑ ↓" : "Drag a bar or use ↑ ↓ · Pin keeps it on top" + (wide() ? " · ½ ⅔ sets width" : "")) + '</div></div>' +
+      '<button type="button" class="btn" id="layoutUndo" aria-label="Undo">↶</button><button type="button" class="btn" id="layoutReset">Reset</button><button type="button" class="btn primary" id="layoutDone">Done</button></div>' +
+      '<div class="lpresets"><span class="muted small">Presets:</span>' + Object.keys(PRESETS).map((k) => '<button type="button" data-preset="' + k + '" title="' + esc(PRESETS[k].desc) + '">' + PRESETS[k].icon + " " + PRESETS[k].name + "</button>").join("") + '</div><div class="ltray" hidden></div>';
     document.body.appendChild(bar);
     bar.addEventListener("click", (e) => {
-      const s = e.target.closest("[data-show]");
-      if (s) { L.hidden = L.hidden.filter((x) => x !== s.dataset.show); save(); apply(); const w = byId(s.dataset.show); if (w) w.scrollIntoView({ block: "center", behavior: "smooth" }); haptic(6); return; }
-      if (e.target.closest("#layoutDone")) setEditing(false);
-      if (e.target.closest("#layoutReset")) { if (!confirm("Reset the layout to the default order, sizes and visibility?")) return; L = blank(); save(); apply(); toast("Layout reset"); }
+      const s = e.target.closest("[data-show]"); if (s) return show(s.dataset.show);
+      const p = e.target.closest("[data-preset]"); if (p) return applyPreset(p.dataset.preset);
+      if (e.target.closest("#layoutUndo")) return undo();
+      if (e.target.closest("#layoutDone")) return setEditing(false);
+      if (e.target.closest("#layoutReset")) { snap(); L = blank(); save(); apply(true); undoToast("Layout reset to default"); }
     });
   }
   function setEditing(on) {
-    const anchor = all().find((w) => { const r = w.getBoundingClientRect(); return r.bottom > 90 && r.height > 0; }); // keep the widget you were looking at in view
+    if (on === editing) return;
+    closeMenu();
+    const anchor = all().find((w) => { const r = w.getBoundingClientRect(); return r.bottom > 90 && r.height > 0 && !w.classList.contains("whid"); });
     editing = on; document.body.classList.toggle("editing", on);
     all().forEach((w) => ctlFor(w));
     if (on) {
-      if (!bar) makeBar(); bar.hidden = false; renderTray(); apply();
+      if (!bar) makeBar(); bar.hidden = false; apply();
       if (window.Sortable && !sortable) sortable = Sortable.create(grid, {
-        handle: ".wh", draggable: ".w", filter: ".pinned", preventOnFilter: false, animation: 160, ghostClass: "wghost", chosenClass: "wchosen",
-        forceFallback: true, fallbackTolerance: 3, scroll: true, scrollSensitivity: 90, bubbleScroll: true,
+        handle: ".wctl", draggable: ".w", filter: ".wb,.pinned", preventOnFilter: false,
+        delay: 180, delayOnTouchOnly: true, touchStartThreshold: 5, animation: reduced() ? 0 : 200, easing: "cubic-bezier(.2,.8,.2,1)",
+        ghostClass: "wghost", chosenClass: "wchosen", dragClass: "wdrag", forceFallback: true, fallbackTolerance: 3, fallbackOnBody: true,
+        scroll: true, scrollSensitivity: 90, bubbleScroll: true,
         onMove: (ev) => !ev.related.classList.contains("pinned"),
-        onStart: () => haptic(10),
-        onEnd: () => { const now = all().map((w) => w.dataset.w); L.order = now; save(); apply(); haptic(6); },
+        onChoose: () => haptic(15),
+        onStart: () => { snap(); document.body.classList.add("dragging"); },
+        onEnd: (ev) => { document.body.classList.remove("dragging"); const now = all().map((w) => w.dataset.w); if (JSON.stringify(now) === JSON.stringify(L.order)) { undoStack.pop(); return; } L.order = now; save(); apply(); haptic(8); undoToast("Moved " + title(ev.item.dataset.w)); },
       });
       if (sortable) sortable.option("disabled", false);
-      toast("Edit layout: drag ⠿ or use ↑ ↓");
+      try { localStorage.setItem(COACH, "1"); } catch (e) {} hideCoach();
     } else {
       if (sortable) sortable.option("disabled", true);
       if (bar) bar.hidden = true;
       window.dispatchEvent(new Event("resize"));
       toast(isDefault() ? "Layout saved (default)" : "Layout saved in this browser");
     }
-    document.querySelectorAll("#layoutBtn,#layoutBtn2").forEach((b) => b.setAttribute("aria-pressed", on));
-    if (anchor && !anchor.classList.contains("whid")) requestAnimationFrame(() => anchor.scrollIntoView({ block: on ? "center" : "start" }));
+    document.querySelectorAll("#layoutBtn,#layoutBtn2,#layoutFab").forEach((b) => b.setAttribute("aria-pressed", on));
+    if (anchor) requestAnimationFrame(() => anchor.scrollIntoView({ block: on ? "center" : "start" }));
   }
+
+  // ---------- floating "Customize" pill on phones (hides while scrolling down) ----------
+  const fab = document.getElementById("layoutFab");
+  if (fab) { let lastY = scrollY, tk = false; addEventListener("scroll", () => { if (tk) return; tk = true; requestAnimationFrame(() => { const y = scrollY; fab.classList.toggle("tuck", y > lastY + 4 && y > 200); if (y < lastY - 4 || y < 200) fab.classList.remove("tuck"); lastY = y; tk = false; }); }, { passive: true }); }
+
+  // ---------- first-visit coach mark ----------
+  let coach = null;
+  function showCoach() {
+    try { if (localStorage.getItem(COACH)) return; } catch (e) { return; }
+    if (editing || document.querySelector("#fanNotice:not([hidden])")) { setTimeout(showCoach, 4000); return; }
+    const target = [document.getElementById("layoutBtn"), fab].find((b) => b && getComputedStyle(b).display !== "none" && b.getBoundingClientRect().width > 0 && !b.classList.contains("tuck"));
+    if (!target) return;
+    coach = document.createElement("div"); coach.className = "coach"; coach.setAttribute("role", "dialog"); coach.setAttribute("aria-label", "Tip");
+    coach.innerHTML = '<b>✨ Make this dashboard yours</b><p>Tap <b>Customize</b> to drag, pin and hide widgets, or pick a preset: Trader, Holder or Wallet watcher. Every card also has a <b>⋯</b> menu.</p><div class="row gap"><button type="button" class="btn primary" data-c="go">Show me</button><button type="button" class="btn" data-c="x">Got it</button></div>';
+    document.body.appendChild(coach);
+    const r = target.getBoundingClientRect(), cw = coach.offsetWidth, ch = coach.offsetHeight, below = r.top < innerHeight / 2;
+    coach.style.left = Math.min(innerWidth - cw - 10, Math.max(10, r.left + r.width / 2 - cw / 2)) + "px";
+    coach.style.top = (below ? r.bottom + 12 : r.top - ch - 12) + "px";
+    coach.style.setProperty("--ax", Math.max(16, Math.min(cw - 16, r.left + r.width / 2 - parseFloat(coach.style.left))) + "px");
+    coach.classList.add(below ? "down" : "up");
+    requestAnimationFrame(() => coach && coach.classList.add("show"));
+    coach.addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (!b) return; try { localStorage.setItem(COACH, "1"); } catch (x) {} hideCoach(); if (b.dataset.c === "go") setEditing(true); });
+  }
+  function hideCoach() { if (coach) { coach.remove(); coach = null; } }
+  setTimeout(showCoach, 3500);
 
   // ---------- tabs → first visible widget of that group ----------
   function goto(tab) {
     const w = all().find((x) => x.dataset.tab === tab && !x.classList.contains("whid") && !x.hidden);
-    if (!w) { toast("That section is hidden · ▦ Customize layout to show it"); return false; }
-    w.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    if (!w) { toast("That section is hidden · tap Customize to show it"); return false; }
+    w.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
     return true;
   }
   document.addEventListener("click", (e) => {
     const a = e.target.closest(".tabs a[data-tab]"); if (!a) return;
     e.preventDefault(); if (goto(a.dataset.tab)) history.replaceState(null, "", "#" + a.dataset.tab);
   });
-  grid.addEventListener("click", onCtl);
-  document.querySelectorAll("#layoutBtn,#layoutBtn2").forEach((b) => b.addEventListener("click", () => setEditing(!editing)));
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && editing) setEditing(false); });
+  document.querySelectorAll("#layoutBtn,#layoutBtn2,#layoutFab").forEach((b) => b && b.addEventListener("click", () => setEditing(!editing)));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { if (menu) closeMenu(); else if (editing) setEditing(false); }
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && undoStack.length && !e.target.closest("input,textarea")) { e.preventDefault(); undo(); }
+  });
   apply();
-  window.SNEKLAYOUT = { goto, setEditing, get: () => JSON.parse(JSON.stringify(L)), isEditing: () => editing };
+  window.SNEKLAYOUT = { goto, setEditing, applyPreset, undo, get: () => JSON.parse(JSON.stringify(L)), isEditing: () => editing };
 })();
