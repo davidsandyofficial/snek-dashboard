@@ -54,14 +54,17 @@
 
   // GeckoTerminal's free API allows ~30 calls/min per visitor; back off briefly after a failure (429s arrive without CORS headers).
   // Calls are queued at least 1.5 s apart and back off for 30 s after a failure (429s arrive without CORS headers).
-  let gtPauseUntil = 0, gtChain = Promise.resolve(), gtLast = 0;
+  // Hard client-side ceiling: at most 7 GeckoTerminal calls in any rolling 60 s (keyless limit is ~10/min per IP).
+  let gtPauseUntil = 0, gtChain = Promise.resolve(), gtLast = 0; const gtWin = (store.get("snek-gtwin", []) || []).filter((t) => Date.now() - t < 60000); // shared across reloads/tabs
   function gt(path) {
     const run = () => {
       if (Date.now() < gtPauseUntil) return Promise.reject(new Error("rate limited, retrying shortly"));
       if (document.visibilityState === "hidden") return Promise.reject(new Error("paused while hidden"));
-      const wait = Math.max(0, gtLast + 1500 - Date.now());
-      return new Promise((r) => setTimeout(r, wait)).then(() => { gtLast = Date.now(); STATS.gtCalls++; return getJSON(GT + path); })
-        .catch((e) => { gtPauseUntil = Date.now() + 30000; throw e; });
+      while (gtWin.length && Date.now() - gtWin[0] > 60000) gtWin.shift();
+      const wait = Math.max(0, gtLast + 1500 - Date.now(), gtWin.length >= 7 ? gtWin[0] + 60000 - Date.now() : 0);
+      if (wait > 20000) return Promise.reject(new Error("GeckoTerminal budget used, skipping"));
+      return new Promise((r) => setTimeout(r, wait)).then(() => { gtLast = Date.now(); gtWin.push(gtLast); store.set("snek-gtwin", gtWin); STATS.gtCalls++; return getJSON(GT + path); })
+        .catch((e) => { gtPauseUntil = Date.now() + 60000; throw e; });
     };
     const p = gtChain.then(run, run); gtChain = p.catch(() => {}); return p;
   }
@@ -462,8 +465,8 @@
   function refresh(full) {
     if (busy) return Promise.resolve(); busy = true;
     const t = state.tick++; // 5 s ticks. GeckoTerminal's keyless API allows ~10 calls/min and caches responses for 1 min, so it is polled sparingly
-    // (trades 30 s, last candle 60 s, pools 120 s = ~3.5 calls/min); DexHunter's order feed carries the 5 s on-chain trade cadence.
-    const doMarket = full || t % 12 === 0; const doPools = full || t % 24 === 9; const doCandle = full || t % 12 === 3; const doGT = full || t % 6 === 1; const doDH = true;
+    // (trades 60 s, last candle 60 s, pools 5 min = ~2.2 calls/min); DexHunter's order feed carries the 5 s on-chain trade cadence.
+    const doMarket = full || t % 12 === 0; const doPools = full || t % 60 === 9; const doCandle = full || t % 12 === 3; const doGT = full || t % 12 === 7; const doDH = true;
     const pMarket = !doMarket ? Promise.resolve() : Promise.all([
       getJSON(CG + "/coins/snek?localization=false&tickers=true&market_data=true&community_data=false&developer_data=false"),
       getJSON(CG + "/simple/price?ids=cardano&vs_currencies=usd").catch(() => null)
@@ -479,7 +482,7 @@
         !doGT ? null : gt("/pools/" + state.mainPool + "/trades").then((r) => { if (!r.data) throw 0; state.trades = r.data; state.tradeLive.gt = true; (STATS.tradePolls = STATS.tradePolls || []).push(["gt", Date.now()]); }).catch(() => { state.tradeLive.gt = false; }),
         !doDH ? null : dhOrders().then(() => { state.tradeLive.dh = true; (STATS.tradePolls = STATS.tradePolls || []).push(["dh", Date.now()]); }).catch(() => { state.tradeLive.dh = false; })
       ]).then(() => { state.live.trades = state.tradeLive.gt || state.tradeLive.dh; }))
-      .then(() => (doCandle ? updateLastCandles() : null)).then(() => { state.asOf = new Date(); renderMarket(); renderPools(); renderVenues(); renderTrades(); renderStatus(); }).finally(() => { busy = false; });
+      .then(() => (doCandle && !full ? updateLastCandles() : null)).then(() => { state.asOf = new Date(); renderMarket(); renderPools(); renderVenues(); renderTrades(); renderStatus(); }).finally(() => { busy = false; });
   }
 
   // ---------------- UI chrome ----------------
