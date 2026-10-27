@@ -108,8 +108,8 @@
     const sk = (n) => (LIVE && LIVE.socks[n] && LIVE.socks[n].up ? '<span class="wsdot on" title="WebSocket connected"></span>WebSocket' : '<span class="wsdot" title="Not connected"></span>' + (LIVE && LIVE.started ? "connecting" : "paused"));
     const ada = LIVE && LIVE.ada, dex = LIVE && LIVE.dex;
     const rows = [];
-    rows.push(["Cardano DEXes · SNEK/ADA", dex ? dex.px.toPrecision(5) + " ADA" + (ada ? '<div class="small muted">≈ $' + Number((dex.px * ada.px).toPrecision(5)) + "</div>" : "") : na(), dex ? esc(dex.src) + " · REST 4 s" : "DexHunter · REST 4 s", age(dex && dex.t)]);
-    ["Kraken", "Gate", "Bitget"].forEach((v) => { const c = LIVE && LIVE.cex[v]; rows.push([v + " · " + (c && c.pair ? c.pair : v === "Kraken" ? "SNEK/USD" : "SNEK/USDT"), c ? "$" + Number(c.px.toPrecision(5)) : na(), sk(v), age(c && c.t)]); });
+    rows.push(["Cardano DEXes · SNEK/ADA", dex && ok(dex.px) ? dex.px.toPrecision(5) + " ADA" + (ada && ok(ada.px) ? '<div class="small muted">≈ $' + Number((dex.px * ada.px).toPrecision(5)) + "</div>" : "") : na(), dex ? esc(dex.src) + " · REST 4 s" : "DexHunter · REST 4 s", age(dex && dex.t)]);
+    ["Kraken", "Gate", "Bitget"].forEach((v) => { const c = LIVE && LIVE.cex[v]; rows.push([v + " · " + (c && c.pair ? c.pair : v === "Kraken" ? "SNEK/USD" : "SNEK/USDT"), c && ok(c.px) ? "$" + Number(c.px.toPrecision(5)) : na(), sk(v), age(c && c.t)]); });
     rows.push(["ADA/USD", ada ? "$" + ada.px.toFixed(5) : na(), ada ? esc(ada.src) + (/REST/.test(ada.src) ? "" : " · WebSocket") : sk("Kraken"), age(ada && ada.t)]);
     el.innerHTML = "<tr><th>Venue · feed · updated</th><th>Last</th></tr>" + rows.map((r) => "<tr><td>" + r[0] + '<div class="small muted">' + r[2] + " · " + r[3] + "</div></td><td>" + r[1] + "</td></tr>").join("");
   }
@@ -203,7 +203,7 @@
   }
   function showOHLC(b) {
     const el = $("ohlc"); if (!b) { el.innerHTML = '<span class="na">No candle data yet</span>'; return; }
-    const f = (v) => state.chart.cur === "usd" ? "$" + Number(v.toPrecision(4)) : Number(v.toPrecision(4)) + " ₳";
+    const f = (v) => !ok(v) ? "" : state.chart.cur === "usd" ? "$" + Number(v.toPrecision(4)) : Number(v.toPrecision(4)) + " ₳";
     const ch = ((b.close - b.open) / b.open) * 100;
     const vu = state.chart.cur === "usd" ? "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(b.volume) : Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(b.volume) + " ₳";
     el.innerHTML = '<span class="muted">' + fmtTime(new Date(b.time * 1000), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</span><span>O <b>" + f(b.open) + "</b></span><span>H <b>" + f(b.high) + "</b></span><span>L <b>" + f(b.low) + "</b></span><span>C <b>" + f(b.close) + "</b></span>" + pct(ch) + "<span>Vol <b>" + vu + "</b></span>" +
@@ -311,7 +311,7 @@
     const hit = alerts.filter((a) => (a.dir === "above" ? p >= a.price : p <= a.price)); if (!hit.length) return;
     if (FX) FX.haptic([30, 60, 30, 60, 30]);
     hit.forEach((a) => {
-      const msg = "SNEK is " + a.dir + " $" + a.price + " (now $" + Number(p.toPrecision(4)) + ")";
+      const msg = "SNEK is " + a.dir + " $" + a.price + " (now $" + Number(Number(p).toPrecision(4)) + ")";
       toast("🔔 " + msg + " · fan-made alert");
       if ("Notification" in window && Notification.permission === "granted") { try { new Notification("SNEK price alert", { body: msg, icon: "assets/icons/icon-192.png" }); } catch (e) {} }
     });

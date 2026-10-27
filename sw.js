@@ -1,7 +1,7 @@
 // Caches only the app shell so the dashboard opens offline/instantly.
 // Network-first for every shell file, so a fresh deploy always wins when online.
 // Market/API data and snapshot.json are never served from this cache.
-const CACHE = "snek-shell-v6";
+const CACHE = "snek-shell-v7";
 const SHELL = ["./", "index.html", "assets/style.css", "assets/app.js", "assets/fx.js", "assets/live.js", "assets/wallets.js", "assets/snapshot.js",
   "assets/vendor/lightweight-charts.standalone.production.js", "assets/vendor/d3-hierarchy.min.js",
   "assets/icons/icon-192.png", "assets/icons/icon-512.png", "assets/icons/apple-touch-icon.png",
