@@ -86,7 +86,7 @@
     const fresh = [];
     table.querySelectorAll("tr[data-tx]").forEach((tr) => {
       const tx = tr.dataset.tx;
-      if (!seen.has(tx)) { seen.add(tx); if (primed) { tr.classList.add("slide-in"); fresh.push(tr); } }
+      if (!seen.has(tx)) { seen.add(tx); if (primed && !tr.hasAttribute("data-old")) { tr.classList.add("slide-in"); fresh.push(tr); } }
     });
     primed = true;
     const whales = fresh.filter((tr) => tr.classList.contains("whale"));

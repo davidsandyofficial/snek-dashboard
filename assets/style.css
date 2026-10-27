@@ -129,3 +129,9 @@ tr.whale.slide-in td{animation:whaleGlow 2.6s ease}@keyframes whaleGlow{0%{backg
 @media(max-width:430px){.top{gap:6px;padding-left:10px;padding-right:10px}.spark svg{width:42px;height:22px}.fanbadge{max-width:104px;font-size:9.5px}#tPrice{font-size:15px}.actions{gap:4px}}
 @media(max-width:350px){.spark{display:none}}
 @media(max-width:430px){#refreshBtn{display:none}.fanbadge{min-width:100px}.brand{flex:none}}
+.pricesrc{margin-top:4px;font-size:11.5px;line-height:1.35}
+.wsdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:5px;vertical-align:middle}
+.wsdot.on{background:var(--snek);box-shadow:0 0 6px var(--snek)}
+.vtag{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11.5px;white-space:nowrap;border:1px solid var(--line)}
+.vtag.dex{color:var(--snek)}.vtag.cex{color:var(--cyan)}
+#liveVenues td:nth-child(2),#liveVenues td:nth-child(3){white-space:nowrap}#liveVenues td{vertical-align:top}

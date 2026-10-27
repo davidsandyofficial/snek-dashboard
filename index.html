@@ -52,8 +52,14 @@
         <div class="muted small">SNEK / USD</div>
         <div class="price" id="price"><span class="skel w160">&nbsp;</span></div>
         <div class="sub"><span id="priceAda" class="skel w80">&nbsp;</span> · <span id="ch24"></span> <span class="muted">24h</span></div>
+        <div class="muted small pricesrc" id="priceSrc"></div>
       </div>
       <div class="kpis" id="kpis"><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div></div>
+    </div>
+    <div class="card">
+      <div class="row between wrap"><h2>Live prices by venue</h2><span class="muted small">Ticks in real time · pauses when this tab is hidden</span></div>
+      <div class="table-wrap"><table id="liveVenues"><tr><td><div class="skel h56"></div></td></tr></table></div>
+      <p class="muted small">Headline USD price = on-chain SNEK/ADA from Cardano DEXes (DexHunter aggregate, every 4 s; DexScreener fallback) × live ADA/USD (Kraken and Coinbase WebSockets). On-chain prices can only move once per Cardano block (~20 s). USDT pairs are shown as USD.</p>
     </div>
     <div class="card">
       <h2>Token stats</h2>
@@ -78,7 +84,7 @@
       </div>
       <div class="legend-ohlc" id="ohlc">&nbsp;</div>
       <div id="tvchart" class="tvchart"><div class="skel fill"></div></div>
-      <p class="muted small">Main Minswap SNEK/ADA pool, OHLCV from GeckoTerminal; last candle updates every 10 s. Pinch or scroll to zoom, drag to pan. Times in CT. Charting by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a> Lightweight Charts™.</p>
+      <p class="muted small">Main Minswap SNEK/ADA pool, OHLCV from GeckoTerminal; last candle refreshes every 60 s (GeckoTerminal caches data for 1 min). Pinch or scroll to zoom, drag to pan. Times in CT. Charting by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a> Lightweight Charts™.</p>
     </div>
   </section>
 
@@ -113,6 +119,7 @@
       <div class="row between wrap gap"><h2>Recent trades</h2>
         <div class="row wrap gap">
           <label class="inline">Whale ≥ <select id="whaleMin"><option value="250">$250</option><option value="500" selected>$500</option><option value="1000">$1,000</option><option value="5000">$5,000</option></select></label>
+          <label class="inline">Venue <select id="tradeVenue"><option value="all" selected>All</option><option value="dex">On-chain DEX</option><option value="cex">CEX</option></select></label>
           <label class="inline switch"><input type="checkbox" id="whaleOnly"> Whales only</label>
         </div>
       </div>
@@ -174,7 +181,7 @@
 </main>
 
 <footer class="muted small">
-  <p>Live in your browser: CoinGecko API (price, market stats, venues, every 30 s), GeckoTerminal API (pools, trades, candles, every 10 s), Koios (address lookup). Holder data: Cardanoscan, refreshed by a scheduled GitHub Action and re-checked here every 5 minutes.</p>
+  <p>Live in your browser (all keyless, paused while the tab is hidden): SNEK/ADA from DexHunter (every 4 s, DexScreener fallback) × real-time ADA/USD from Kraken and Coinbase WebSockets; SNEK ticks and trades from Kraken, Gate and Bitget WebSockets; on-chain trades from DexHunter (every 5 s) and GeckoTerminal (every 30 s); market stats from CoinGecko (every 60 s); pools (every 2 min) and candles (every 60 s) from GeckoTerminal; Koios (address lookup). Holder data: Cardanoscan, refreshed by a scheduled GitHub Action and re-checked here every 5 minutes.</p>
   <p><b>Credits:</b> <a href="https://github.com/tradingview/lightweight-charts" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> (Apache-2.0, © TradingView, Inc.) · <a href="https://github.com/d3/d3-hierarchy" target="_blank" rel="noopener">d3-hierarchy</a> (ISC, © Mike Bostock) · SNEK brand assets © SNEK / their owners (<a href="https://www.snek.com/brand" target="_blank" rel="noopener">snek.com</a>) · <a href="https://www.koios.rest/" target="_blank" rel="noopener">Koios</a> community API. License texts in <a href="assets/vendor/">assets/vendor</a>.</p>
   <p><b>Fan-made community dashboard by David Sandy. Not affiliated with or endorsed by SNEK. SNEK brand assets © their owners, used per snek.com terms. Not financial advice.</b></p>
   <p>SNEK logo, mascot and token artwork from the official media kit at <a href="https://www.snek.com/brand" target="_blank" rel="noopener">snek.com/brand</a>, used for personal, non-commercial purposes under the <a href="https://www.snek.com/intellectual-property-policy" target="_blank" rel="noopener">SNEK Intellectual Property Policy</a>. This site has no ads, sells nothing and does not suggest endorsement.</p>
@@ -185,6 +192,7 @@
 <script src="assets/vendor/d3-hierarchy.min.js"></script>
 <script src="assets/snapshot.js"></script>
 <script src="assets/fx.js"></script>
+<script src="assets/live.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

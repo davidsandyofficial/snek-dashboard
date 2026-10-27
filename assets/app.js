@@ -5,6 +5,9 @@
   const TOKEN = POLICY + "534e454b";
   const CG = "https://api.coingecko.com/api/v3";
   const GT = "https://api.geckoterminal.com/api/v2/networks/cardano";
+  const DHAPI = "https://api-us.dexhunterv3.app";
+  const LOVELACE = "000000000000000000000000000000000000000000000000000000006c6f76656c616365";
+  const DH_DEX = { MINSWAP: "Minswap", MINSWAPV2: "Minswap V2", WINGRIDER: "WingRiders", WINGRIDERV2: "WingRiders V2", VYFI: "VyFi", SUNDAESWAP: "SundaeSwap", SUNDAESWAPV3: "SundaeSwap V3", SPLASH: "Splash", SPECTRUM: "Splash", CSWAP: "CSWAP", MUESLISWAP: "MuesliSwap", CERRA: "Cerra", SATURNSWAP: "SaturnSwap", GENIUS: "Genius Yield", CHADSWAP: "ChadSwap", SNEKFUN: "Snek.fun" };
   const KOIOS = "https://api.koios.rest/api/v1";
   const DEFAULT_POOL = "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c2ffadbb87144e875749122e0bbb9f535eeaa7f5660c6c4a91bcc4121e477f08d";
   const TZ = "America/Chicago";
@@ -18,7 +21,7 @@
   };
   const state = {
     market: null, live: { market: false, pools: false, trades: false, candles: false }, pools: [], trades: [], tickers: [], asOf: null,
-    mainPool: DEFAULT_POOL, tick: 0,
+    mainPool: DEFAULT_POOL, tick: 0, dhTrades: [], tradeLive: { gt: false, dh: false },
     chart: { iv: store.get("snek-iv", "1H"), type: store.get("snek-type", "candle"), cur: store.get("snek-cur", "usd"), ma: store.get("snek-ma", ["20"]), bars: [], live: false }
   };
 
@@ -36,6 +39,8 @@
   const ago = (d) => { const s = Math.round((Date.now() - d.getTime()) / 1000); if (s < 90) return s + " s ago"; if (s < 5400) return Math.round(s / 60) + " min ago"; if (s < 172800) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " days ago"; };
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const FX = window.SNEKFX || null;
+  const LIVE = window.SNEKLIVE || null;
+  const STATS = window.SNEKSTATS = { priceShown: [], priceData: [], tradeNew: [], gtCalls: 0, cgCalls: 0 };
   function toast(msg, type) { if (FX) { FX.toast(msg, type || (/^🔔/.test(msg) ? "alert" : /copied|added|updated/i.test(msg) ? "ok" : /busy|unavailable|failed|blocked/i.test(msg) ? "warn" : "info")); return; } const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600); }
   function empty(msg) { return '<div class="empty"><img src="assets/brand/snek-face-sad.webp" alt="" width="96" height="65" loading="lazy"><div>' + esc(msg) + '</div><span class="fan">Fan-made dashboard · not affiliated with SNEK</span></div>'; }
   function hideSplash() { const s = $("splash"); if (s && !s.classList.contains("hide")) { s.classList.add("hide"); setTimeout(() => s.remove(), 400); } }
@@ -53,8 +58,9 @@
   function gt(path) {
     const run = () => {
       if (Date.now() < gtPauseUntil) return Promise.reject(new Error("rate limited, retrying shortly"));
+      if (document.visibilityState === "hidden") return Promise.reject(new Error("paused while hidden"));
       const wait = Math.max(0, gtLast + 1500 - Date.now());
-      return new Promise((r) => setTimeout(r, wait)).then(() => { gtLast = Date.now(); return getJSON(GT + path); })
+      return new Promise((r) => setTimeout(r, wait)).then(() => { gtLast = Date.now(); STATS.gtCalls++; return getJSON(GT + path); })
         .catch((e) => { gtPauseUntil = Date.now() + 30000; throw e; });
     };
     const p = gtChain.then(run, run); gtChain = p.catch(() => {}); return p;
@@ -71,12 +77,48 @@
   const tickersFromCG = (d) => (d.tickers || []).map((t) => ({ market: t.market.name, vol: (t.converted_volume && t.converted_volume.usd) || 0 }));
   const priceAda = () => { const m = state.market; return m && ok(m.price) && ok(m.adaUsd) ? m.price / m.adaUsd : null; };
 
+  // Live overlay: USD price = on-chain SNEK/ADA (DexHunter) x real-time ADA/USD (Kraken/Coinbase WebSockets).
+  // Market cap, FDV and 24h change are rescaled from CoinGecko's last values by the live/CoinGecko price ratio.
+  function applyLive(m) {
+    if (!LIVE) return; const v = LIVE.usd(); if (!v || !ok(m.cgPrice)) return;
+    const r = v.px / m.cgPrice; m.price = v.px; if (ok(v.adaUsd)) m.adaUsd = v.adaUsd;
+    m.mcap = ok(m.cgMcap) ? m.cgMcap * r : m.mcap; m.fdv = ok(m.cgFdv) ? m.cgFdv * r : m.fdv;
+    m.ch24 = ok(m.cgCh24) ? ((1 + m.cgCh24 / 100) * r - 1) * 100 : m.ch24; m.priceSrc = v.src; m.priceT = v.t;
+  }
+  function baseline(m) { m.cgPrice = m.price; m.cgMcap = m.mcap; m.cgFdv = m.fdv; m.cgCh24 = m.ch24; return m; }
+  function renderPriceSrc() {
+    const m = state.market, el = $("priceSrc"); if (!el || !m) return;
+    el.textContent = m.priceSrc ? "Live: " + m.priceSrc + " · " + Math.max(0, Math.round((Date.now() - m.priceT) / 1000)) + " s ago" : "Price: CoinGecko (refreshes every 60 s)";
+  }
+  let liveTimer = null, liveLast = 0;
+  function scheduleLive() {
+    STATS.priceData.push(Date.now()); if (STATS.priceData.length > 2000) STATS.priceData.shift();
+    if (liveTimer) return; const wait = Math.max(0, liveLast + 1000 - Date.now());
+    liveTimer = setTimeout(() => { liveTimer = null; liveLast = Date.now(); renderMarket(); }, wait);
+  }
+  let tradeTimer = null;
+  function scheduleTrades() { if (!tradeTimer) tradeTimer = setTimeout(() => { tradeTimer = null; renderTrades(); }, 800); }
+  const VENUE_URL = { Kraken: "https://pro.kraken.com/app/trade/snek-usd", Gate: "https://www.gate.io/trade/SNEK_USDT", Bitget: "https://www.bitget.com/spot/SNEKUSDT" };
+  function renderLiveVenues() {
+    const el = $("liveVenues"); if (!el) return;
+    const t = Date.now(), age = (x) => (x ? Math.max(0, Math.round((t - x) / 1000)) + " s ago" : na());
+    const sk = (n) => (LIVE && LIVE.socks[n] && LIVE.socks[n].up ? '<span class="wsdot on" title="WebSocket connected"></span>WebSocket' : '<span class="wsdot" title="Not connected"></span>' + (LIVE && LIVE.started ? "connecting" : "paused"));
+    const ada = LIVE && LIVE.ada, dex = LIVE && LIVE.dex;
+    const rows = [];
+    rows.push(["Cardano DEXes · SNEK/ADA", dex ? dex.px.toPrecision(5) + " ADA" + (ada ? '<div class="small muted">≈ $' + Number((dex.px * ada.px).toPrecision(5)) + "</div>" : "") : na(), dex ? esc(dex.src) + " · REST 4 s" : "DexHunter · REST 4 s", age(dex && dex.t)]);
+    ["Kraken", "Gate", "Bitget"].forEach((v) => { const c = LIVE && LIVE.cex[v]; rows.push([v + " · " + (c && c.pair ? c.pair : v === "Kraken" ? "SNEK/USD" : "SNEK/USDT"), c ? "$" + Number(c.px.toPrecision(5)) : na(), sk(v), age(c && c.t)]); });
+    rows.push(["ADA/USD", ada ? "$" + ada.px.toFixed(5) : na(), ada ? esc(ada.src) + (/REST/.test(ada.src) ? "" : " · WebSocket") : sk("Kraken"), age(ada && ada.t)]);
+    el.innerHTML = "<tr><th>Venue · feed · updated</th><th>Last</th></tr>" + rows.map((r) => "<tr><td>" + r[0] + '<div class="small muted">' + r[2] + " · " + r[3] + "</div></td><td>" + r[1] + "</td></tr>").join("");
+  }
   function renderMarket() {
     const m = state.market; if (!m) return;
+    applyLive(m);
     const pa = priceAda();
-    const ptxt = ok(m.price) ? "$" + Number(Number(m.price).toPrecision(4)) : null;
+    const ptxt = ok(m.price) ? "$" + Number(Number(m.price).toPrecision(5)) : null;
+    if (ptxt && ptxt !== renderMarket._last) { renderMarket._last = ptxt; STATS.priceShown.push(Date.now()); if (STATS.priceShown.length > 500) STATS.priceShown.shift(); }
     if (FX && ptxt) FX.price($("price"), ptxt, m.price); else $("price").innerHTML = usd(m.price);
-    unskel($("priceAda")); $("priceAda").innerHTML = ok(pa) ? pa.toPrecision(4) + " ADA" : na();
+    unskel($("priceAda")); $("priceAda").innerHTML = ok(pa) ? pa.toPrecision(5) + " ADA" : na();
+    renderPriceSrc();
     $("ch24").innerHTML = pct(m.ch24);
     unskel($("tPrice")); if (FX && ptxt) FX.price($("tPrice"), ptxt, m.price); else $("tPrice").innerHTML = usd(m.price); $("tChg").innerHTML = pct(m.ch24);
     pushSpark(m.price);
@@ -352,16 +394,26 @@
     bars($("venueChart"), Object.keys(agg).map((k) => ({ label: k, value: agg[k], display: big(agg[k]), meta: dex[k] ? "DEX" : "" })).filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, 10));
   }
   function renderTrades() {
-    const min = +$("whaleMin").value, only = $("whaleOnly").checked;
-    const rows = state.trades.map((t) => { const a = t.attributes, buy = a.kind === "buy"; return { a, buy, usd: parseFloat(a.volume_in_usd), snek: parseFloat(buy ? a.to_token_amount : a.from_token_amount), ada: parseFloat(buy ? a.from_token_amount : a.to_token_amount) }; });
+    const min = +$("whaleMin").value, only = $("whaleOnly").checked, vf = $("tradeVenue") ? $("tradeVenue").value : "all";
+    const mp = state.pools.find((p) => p.attributes && p.attributes.address === state.mainPool), mdex = mp && mp.relationships && mp.relationships.dex ? (DEX_NAMES[mp.relationships.dex.data.id] || mp.relationships.dex.data.id) : "Minswap";
+    let rows = vf === "cex" ? [] : state.trades.map((t) => { const a = t.attributes, buy = a.kind === "buy"; return { id: a.tx_hash, venue: mdex, dex: true, time: new Date(a.block_timestamp).getTime(), buy, usd: parseFloat(a.volume_in_usd), snek: parseFloat(buy ? a.to_token_amount : a.from_token_amount), ada: parseFloat(buy ? a.from_token_amount : a.to_token_amount) }; });
+    if (vf !== "cex") {
+      const have = new Set(rows.map((r) => r.id)), adaUsd = state.market && state.market.adaUsd;
+      rows = rows.concat(state.dhTrades.filter((d) => !have.has(d.id) && !have.has(d.alt)).map((d) => Object.assign({}, d, { usd: ok(adaUsd) ? d.ada * adaUsd : NaN })));
+    }
+    if (LIVE && vf !== "dex") rows = rows.concat(LIVE.trades.map((t) => ({ id: t.id, venue: t.venue, pair: t.pair, dex: false, time: t.time, buy: t.side === "buy", usd: t.usd, snek: t.qty, ada: null })));
+    rows.sort((x, y) => y.time - x.time);
     const whales = rows.filter((r) => r.usd >= min);
     $("whaleSummary").innerHTML = rows.length ? "🐋 " + whales.length + " of " + rows.length + " recent trades are ≥ $" + min.toLocaleString() + " · whale buys " + big(whales.filter((r) => r.buy).reduce((s, r) => s + r.usd, 0)) + " vs sells " + big(whales.filter((r) => !r.buy).reduce((s, r) => s + r.usd, 0)) : "";
     const show = (only ? whales : rows).slice(0, 25);
     if (!show.length) { $("tradesTable").innerHTML = "<tr><td>" + empty(rows.length ? "No whale trades in the latest batch. Try a lower threshold." : "Trade data unavailable right now.") + "</td></tr>"; return; }
-    $("tradesTable").innerHTML = "<tr><th>Time (CT)</th><th>Side</th><th>ADA</th><th>SNEK</th><th>USD</th></tr>" + show.map((r) => {
-      const w = r.usd >= min;
-      return '<tr data-tx="' + esc(r.a.tx_hash) + '" class="' + (w ? "whale" : "") + '"><td><a href="https://cardanoscan.io/transaction/' + esc(r.a.tx_hash) + '" target="_blank" rel="noopener">' + fmtTime(new Date(r.a.block_timestamp), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</a></td><td class=\"" + (r.buy ? "buy" : "sell") + '">' + (w ? "🐋 " : "") + (r.buy ? "Buy" : "Sell") + "</td><td>" + num(r.ada, 2) + "</td><td>" + num(r.snek) + "</td><td>" + usd(r.usd) + "</td></tr>";
+    const seen = new Set(); STATS._ids = STATS._ids || new Set();
+    $("tradesTable").innerHTML = "<tr><th>Time (CT)</th><th>Venue</th><th>Side</th><th>ADA</th><th>SNEK</th><th>USD</th></tr>" + show.map((r) => {
+      const w = r.usd >= min; seen.add(r.id);
+      const href = r.dex ? "https://cardanoscan.io/transaction/" + encodeURIComponent(r.id) : VENUE_URL[r.venue];
+      return '<tr data-tx="' + esc(r.id) + '"' + (Date.now() - r.time > 180000 ? " data-old" : "") + ' class="' + (w ? "whale" : "") + '"><td><a href="' + esc(href) + '" target="_blank" rel="noopener">' + fmtTime(new Date(r.time), Date.now() - r.time < 72000000 ? { hour: "numeric", minute: "2-digit", second: "2-digit" } : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</a></td><td><span class=\"vtag " + (r.dex ? "dex" : "cex") + '">' + esc(r.venue) + (r.dex ? "" : ' <span class="muted">' + esc(r.pair) + "</span>") + "</span></td><td class=\"" + (r.buy ? "buy" : "sell") + '">' + (w ? "🐋 " : "") + (r.buy ? "Buy" : "Sell") + "</td><td>" + (r.dex ? num(r.ada, 2) : '<span class="muted" title="CEX trade, quoted in USD/USDT">—</span>') + "</td><td>" + num(r.snek) + "</td><td>" + usd(r.usd) + "</td></tr>";
     }).join("");
+    seen.forEach((id) => { if (!STATS._ids.has(id)) { STATS._ids.add(id); if (STATS._init) STATS.tradeNew.push(Date.now()); } }); STATS._init = true;
     if (FX) FX.trades($("tradesTable"));
   }
 
@@ -373,7 +425,8 @@
   }
   function pushSpark(p) {
     if (!ok(p)) return; if (!sparkVals) sparkVals = [];
-    if (sparkVals[sparkVals.length - 1] !== p) sparkVals.push(p);
+    const t = Date.now();
+    if (pushSpark._t && t - pushSpark._t < 60000 && sparkVals.length) sparkVals[sparkVals.length - 1] = p; else { sparkVals.push(p); pushSpark._t = t; }
     if (sparkVals.length > 60) sparkVals = sparkVals.slice(-60);
     if (FX) FX.spark($("tSpark"), sparkVals);
   }
@@ -390,15 +443,31 @@
     const when = state.asOf ? fmtTime(state.asOf, { hour: "numeric", minute: "2-digit", second: "2-digit" }) + " CT" : "";
     $("statusText").textContent = all ? "Live · updated " + when : any ? "Partly live · updated " + when + " · some panels show the saved snapshot" : "Offline · showing saved snapshot from " + (SNAP && SNAP.asOf ? stamp(new Date(SNAP.asOf)) : "unknown time");
   }
-  function loadSnapshot() { if (!SNAP) return; state.market = Object.assign({}, SNAP.market); state.pools = SNAP.pools || []; state.trades = SNAP.trades || []; state.tickers = SNAP.tickers || []; }
+  function loadSnapshot() { if (!SNAP) return; state.market = baseline(Object.assign({}, SNAP.market)); state.pools = SNAP.pools || []; state.trades = SNAP.trades || []; state.tickers = SNAP.tickers || []; }
+  // DexHunter's public global order feed: completed SNEK swaps routed across Cardano DEXes (keyless, CORS-enabled).
+  let dhPauseUntil = 0, dhFails = 0;
+  function dhOrders() {
+    if (Date.now() < dhPauseUntil) return Promise.reject(new Error("backoff"));
+    STATS.dhCalls = (STATS.dhCalls || 0) + 1;
+    return getJSON(DHAPI + "/swap/globalOrders", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ filters: [{ filterType: "TOKENID", values: [TOKEN] }, { filterType: "STATUS", values: ["COMPLETE"] }], page: 0, perPage: 25 }) }, 8000)
+      .then((r) => {
+        dhFails = 0;
+        state.dhTrades = (r.orders || []).filter((o) => o.token_id_in === LOVELACE || o.token_id_out === LOVELACE).map((o) => {
+          const buy = o.token_id_out === TOKEN, ada = buy ? +o.amount_in : +o.actual_out_amount, snek = buy ? +o.actual_out_amount : +o.amount_in;
+          return { id: o.update_tx_hash || o.tx_hash, alt: o.tx_hash, venue: DH_DEX[o.dex] || o.dex, dex: true, time: Date.parse(o.last_update || o.submission_time), buy, ada, snek };
+        }).filter((x) => x.ada > 0 && x.snek > 0);
+      }).catch((e) => { dhFails++; dhPauseUntil = Date.now() + Math.min(120000, 10000 * Math.pow(2, dhFails - 1)); throw e; });
+  }
   let busy = false;
   function refresh(full) {
     if (busy) return Promise.resolve(); busy = true;
-    const t = state.tick++; const doMarket = full || t % 3 === 0; const doPools = full || t % 6 === 0; const doCandle = full || t % 2 === 0;
+    const t = state.tick++; // 5 s ticks. GeckoTerminal's keyless API allows ~10 calls/min and caches responses for 1 min, so it is polled sparingly
+    // (trades 30 s, last candle 60 s, pools 120 s = ~3.5 calls/min); DexHunter's order feed carries the 5 s on-chain trade cadence.
+    const doMarket = full || t % 12 === 0; const doPools = full || t % 24 === 9; const doCandle = full || t % 12 === 3; const doGT = full || t % 6 === 1; const doDH = true;
     const pMarket = !doMarket ? Promise.resolve() : Promise.all([
       getJSON(CG + "/coins/snek?localization=false&tickers=true&market_data=true&community_data=false&developer_data=false"),
       getJSON(CG + "/simple/price?ids=cardano&vs_currencies=usd").catch(() => null)
-    ]).then((r) => { const m = marketFromCG(r[0]); m.adaUsd = r[1] && r[1].cardano ? r[1].cardano.usd : (state.market && state.market.adaUsd) || null; state.market = m; state.tickers = tickersFromCG(r[0]); state.live.market = true; })
+    ]).then((r) => { STATS.cgCalls += 2; const m = baseline(marketFromCG(r[0])); m.adaUsd = r[1] && r[1].cardano ? r[1].cardano.usd : (state.market && state.market.adaUsd) || null; state.market = m; state.tickers = tickersFromCG(r[0]); state.live.market = true; })
       .catch(() => { state.live.market = false; });
     const pPools = !doPools ? Promise.resolve() : gt("/tokens/" + TOKEN + "/pools?page=1").then((r) => {
       if (!r.data || !r.data.length) throw new Error("empty"); state.pools = r.data; state.live.pools = true;
@@ -406,7 +475,10 @@
       if (ada) state.mainPool = ada.attributes.address;
     }).catch(() => { state.live.pools = false; });
     return Promise.all([pMarket, pPools])
-      .then(() => gt("/pools/" + state.mainPool + "/trades").then((r) => { if (!r.data) throw 0; state.trades = r.data; state.live.trades = true; }).catch(() => { state.live.trades = false; }))
+      .then(() => Promise.all([
+        !doGT ? null : gt("/pools/" + state.mainPool + "/trades").then((r) => { if (!r.data) throw 0; state.trades = r.data; state.tradeLive.gt = true; (STATS.tradePolls = STATS.tradePolls || []).push(["gt", Date.now()]); }).catch(() => { state.tradeLive.gt = false; }),
+        !doDH ? null : dhOrders().then(() => { state.tradeLive.dh = true; (STATS.tradePolls = STATS.tradePolls || []).push(["dh", Date.now()]); }).catch(() => { state.tradeLive.dh = false; })
+      ]).then(() => { state.live.trades = state.tradeLive.gt || state.tradeLive.dh; }))
       .then(() => (doCandle ? updateLastCandles() : null)).then(() => { state.asOf = new Date(); renderMarket(); renderPools(); renderVenues(); renderTrades(); renderStatus(); }).finally(() => { busy = false; });
   }
 
@@ -425,7 +497,7 @@
     $("copyPolicy").addEventListener("click", () => copy(POLICY, "Policy ID copied"));
     $("refreshBtn").addEventListener("click", () => { refresh(true); loadCandles(); refreshHolders(); toast("Refreshing…"); });
     ["calcAmt", "calcUnit"].forEach((id) => $(id).addEventListener("input", renderCalc));
-    $("whaleMin").addEventListener("change", renderTrades); $("whaleOnly").addEventListener("change", renderTrades);
+    $("whaleMin").addEventListener("change", renderTrades); $("whaleOnly").addEventListener("change", renderTrades); if ($("tradeVenue")) $("tradeVenue").addEventListener("change", renderTrades);
     const tabs = [...document.querySelectorAll(".tabs a")];
     if ("IntersectionObserver" in window) {
       const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) tabs.forEach((t) => t.classList.toggle("on", t.dataset.tab === e.target.id)); }), { rootMargin: "-45% 0px -50% 0px" });
@@ -450,10 +522,13 @@
     $("statusText").textContent = "Fetching live data…";
     setupNotice(); setTimeout(hideSplash, 3500);
     refresh(true).then(hideSplash, hideSplash); loadCandles(); refreshHolders();
-    setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 10000);
+    setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 5000);
+    setInterval(() => { if (document.visibilityState === "visible") { renderPriceSrc(); renderLiveVenues(); } }, 1000);
+    if (LIVE) { LIVE.on("price", scheduleLive); LIVE.on("trade", scheduleTrades); LIVE.on("venue", renderLiveVenues); LIVE.start(); }
     setInterval(() => { if (document.visibilityState === "visible") refreshHolders(); }, 300000);
     setInterval(() => { if (SNAP && SNAP.holders) $("holderNote").firstChild && renderHoldersNote(); }, 60000);
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(true); refreshHolders(); } });
+    let lastFull = Date.now();
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { const f = Date.now() - lastFull > 60000; if (f) lastFull = Date.now(); refresh(f); refreshHolders(); } });
   }
   // Fan-made notice: shows on first visit; after "Got it" it stays hidden for 7 days, then returns.
   function setupNotice() {
