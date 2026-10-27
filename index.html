@@ -25,6 +25,7 @@
   <div class="ticker" aria-live="polite"><span id="tSpark" class="spark"></span><div class="tcol"><span id="tPrice" class="skel w80">&nbsp;</span><span id="tChg" class="chg"></span></div></div>
   <div class="actions">
     <button id="shareBtn" class="icon-btn" aria-label="Share" title="Share">↗</button>
+    <button id="layoutBtn" class="icon-btn" aria-label="Customize layout" title="Customize layout">▦</button>
     <button id="themeBtn" class="icon-btn" aria-label="Toggle light or dark theme" title="Theme">◐</button>
     <button id="refreshBtn" class="icon-btn" aria-label="Refresh now" title="Refresh">⟳</button>
   </div>
@@ -46,9 +47,8 @@
   <a href="#tools" data-tab="tools"><span>🧰</span>Tools</a>
 </nav>
 
-<main>
-  <section id="overview" class="sect">
-    <div class="card hero">
+<main id="wgrid" class="wgrid">
+    <div class="card w hero" id="overview" data-w="price" data-tab="overview" data-title="Price & key stats" data-size="8">
       <div>
         <div class="muted small">SNEK / USD</div>
         <div class="price" id="price"><span class="skel w160">&nbsp;</span></div>
@@ -57,12 +57,12 @@
       </div>
       <div class="kpis" id="kpis"><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div><div class="kpi skel h56"></div></div>
     </div>
-    <div class="card">
+    <div class="card w" data-w="venues" data-tab="overview" data-title="Live prices by venue" data-size="4">
       <div class="row between wrap"><h2>Live prices by venue</h2><span class="muted small">Ticks in real time · pauses when this tab is hidden</span></div>
       <div class="table-wrap"><table id="liveVenues"><tr><td><div class="skel h56"></div></td></tr></table></div>
       <p class="muted small">Headline USD price = on-chain SNEK/ADA from Cardano DEXes (DexHunter aggregate, every 4 s; DexScreener fallback) × live ADA/USD (Kraken and Coinbase WebSockets). On-chain prices can only move once per Cardano block (~20 s). USDT pairs are shown as USD.</p>
     </div>
-    <div class="card">
+    <div class="card w" data-w="stats" data-tab="overview" data-title="Token stats" data-size="6">
       <h2>Token stats</h2>
       <dl class="props" id="stats"><dt class="skel w120">&nbsp;</dt><dd class="skel w120">&nbsp;</dd></dl>
       <div class="row wrap gap mt">
@@ -70,7 +70,7 @@
         <span class="mono small muted">279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f</span>
       </div>
     </div>
-    <div class="card follow" id="followCard" hidden>
+    <div class="card w follow" id="followCard" hidden data-w="follow" data-tab="overview" data-title="Built by @DavidSandy" data-size="6">
       <img src="assets/brand/snek-face-happy.webp" alt="" width="64" height="44" loading="lazy">
       <div class="grow">
         <div class="ftitle">Built by <a href="https://x.com/DavidSandy" target="_blank" rel="noopener">@DavidSandy</a></div>
@@ -79,10 +79,8 @@
         <p class="muted small">Personal fan project · not affiliated with SNEK · no ads</p>
       </div>
     </div>
-  </section>
 
-  <section id="chart" class="sect">
-    <div class="card">
+    <div class="card w" id="chart" data-w="chart" data-tab="chart" data-title="Price chart" data-size="12">
       <div class="row between wrap gap">
         <h2>Price chart <span class="muted small" id="chartSrc"></span></h2>
         <div class="chips" id="ivChips" role="group" aria-label="Interval"></div>
@@ -96,10 +94,8 @@
       <div id="tvchart" class="tvchart"><div class="skel fill"></div></div>
       <p class="muted small">Main Minswap SNEK/ADA pool, OHLCV from GeckoTerminal; last candle refreshes every 60 s (GeckoTerminal caches data for 1 min). Pinch or scroll to zoom, drag to pan. Times in CT. Charting by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a> Lightweight Charts™.</p>
     </div>
-  </section>
 
-  <section id="holders" class="sect">
-    <div class="card">
+    <div class="card w" id="holders" data-w="holders" data-tab="holders" data-title="Holders" data-size="12">
       <div class="row between wrap"><h2>Holders</h2><span class="muted small" id="holderNote"></span></div>
       <div class="hcount"><span id="holderCount" class="skel w120">&nbsp;</span><span class="muted small" id="holderSub"></span></div>
       <div class="grid2 inner">
@@ -110,10 +106,8 @@
       <div id="treemap" class="treemap"><div class="skel h160"></div></div>
       <div class="table-wrap"><table id="holdersTable"></table></div>
     </div>
-  </section>
 
-  <section id="wallets" class="sect">
-    <div class="card">
+    <div class="card w" id="wallets" data-w="wsearch" data-tab="wallets" data-title="Wallet tracker" data-size="8">
       <div class="row between wrap"><h2>Wallet tracker</h2><span class="muted small">Read-only · no wallet connect · nothing to sign</span></div>
       <form id="wSearch" class="wsearch" autocomplete="off">
         <input id="wInput" class="grow" placeholder="Paste addr1…, stake1… or a $handle" spellcheck="false" autocapitalize="off" enterkeyhint="search" aria-label="Wallet address, stake key or ADA Handle">
@@ -122,32 +116,28 @@
       <div class="chips wchips" id="wExamples"></div>
       <div id="wProfile" class="wprofile" aria-live="polite"></div>
     </div>
-    <div class="card">
+    <div class="card w" data-w="watch" data-tab="wallets" data-title="Tracked wallets" data-size="4">
       <div class="row between wrap"><h2>Tracked wallets <span class="muted small" id="wCount"></span></h2><span class="muted small" id="wWatchNote">Saved only in this browser · re-checked every 5 min while open</span></div>
       <div id="wWatch"></div>
     </div>
-    <div class="card">
+    <div class="card w" data-w="wtop" data-tab="wallets" data-title="Top holders, labeled" data-size="12">
       <div class="row between wrap"><h2>Top holders, labeled</h2><span class="muted small" id="wTopNote"></span></div>
       <p class="muted small">Names come from ADA Handles held by each wallet and from a small <a href="https://github.com/davidsandyofficial/snek-dashboard/blob/main/assets/labels.json" target="_blank" rel="noopener">community label list</a> that needs a public source for every entry. “Exchange-like” means at least two signals (big undelegated ADA, many handles, very busy, legacy Byron address). Signals are hints, not proof of who owns a wallet.</p>
       <div class="table-wrap"><table id="wTop"><tr><td><div class="skel h120"></div></td></tr></table></div>
       <p class="small mt"><a id="wSuggest" href="https://github.com/davidsandyofficial/snek-dashboard/issues/new?title=Wallet%20label%3A%20&amp;body=Address%20or%20stake%20key%3A%0APublic%20source%20(link)%3A%0ASuggested%20label%3A" target="_blank" rel="noopener">Know who a wallet belongs to? Suggest a label with a public source →</a></p>
     </div>
-  </section>
 
-  <section id="pools" class="sect">
-    <div class="card">
+    <div class="card w" id="pools" data-w="liquidity" data-tab="pools" data-title="Liquidity by DEX" data-size="6">
       <div class="row between wrap"><h2>Liquidity by DEX</h2><span class="muted small">GeckoTerminal-tracked pools</span></div>
       <div id="dexChart"><div class="skel h56"></div></div>
       <div class="table-wrap"><table id="poolsTable"></table></div>
     </div>
-    <div class="card">
+    <div class="card w" data-w="volume" data-tab="pools" data-title="24h volume by venue" data-size="6">
       <h2>24h volume by venue</h2>
       <div id="venueChart"><div class="skel h120"></div></div>
     </div>
-  </section>
 
-  <section id="trades" class="sect">
-    <div class="card">
+    <div class="card w" id="trades" data-w="trades" data-tab="trades" data-title="Recent trades" data-size="12">
       <div class="row between wrap gap"><h2>Recent trades</h2>
         <div class="row wrap gap">
           <label class="inline">Whale ≥ <select id="whaleMin"><option value="250">$250</option><option value="500" selected>$500</option><option value="1000">$1,000</option><option value="5000">$5,000</option></select></label>
@@ -158,11 +148,8 @@
       <p class="muted small" id="whaleSummary"></p>
       <div class="table-wrap"><table id="tradesTable"><tr><td><div class="skel h120"></div></td></tr></table></div>
     </div>
-  </section>
 
-  <section id="tools" class="sect">
-    <div class="grid2">
-      <div class="card">
+    <div class="card w" id="tools" data-w="portfolio" data-tab="tools" data-title="Portfolio tracker" data-size="6">
         <h2>Portfolio tracker</h2>
         <div class="form2">
           <label>SNEK held<input id="pfAmt" type="number" inputmode="decimal" min="0" placeholder="e.g. 1000000"></label>
@@ -176,7 +163,7 @@
         </details>
         <p class="muted small">Saved only in this browser.</p>
       </div>
-      <div class="card">
+    <div class="card w" data-w="alerts" data-tab="tools" data-title="Price alerts" data-size="6">
         <h2>Price alerts</h2>
         <div class="form3">
           <label>When price is<select id="alDir"><option value="above">above</option><option value="below">below</option></select></label>
@@ -186,7 +173,7 @@
         <ul class="alerts" id="alList"></ul>
         <p class="muted small" id="alNote">Browser notifications fire while this tab or the installed app is open.</p>
       </div>
-      <div class="card">
+    <div class="card w" data-w="calc" data-tab="tools" data-title="Value calculator" data-size="6">
         <h2>Value calculator</h2>
         <div class="form2">
           <label>Amount<input id="calcAmt" type="number" inputmode="decimal" min="0" value="1000000"></label>
@@ -194,7 +181,7 @@
         </div>
         <div class="out" id="calcOut"></div>
       </div>
-      <div class="card">
+    <div class="card w" data-w="links" data-tab="tools" data-title="Official links" data-size="6">
         <h2>Official links</h2>
         <div class="links">
           <a href="https://www.snek.com/" target="_blank" rel="noopener">Website</a>
@@ -208,13 +195,12 @@
         </div>
         <button id="installBtn" class="btn primary mt" hidden>Install app</button>
       </div>
-    </div>
-  </section>
 </main>
+<div class="layoutbar"><button id="layoutBtn2" class="btn" type="button">▦ Customize layout</button></div>
 
 <footer class="muted small">
   <p>Live in your browser (all keyless, paused while the tab is hidden): SNEK/ADA from DexHunter (every 4 s, DexScreener fallback) × real-time ADA/USD from Kraken and Coinbase WebSockets; SNEK ticks and trades from Kraken, Gate and Bitget WebSockets; on-chain trades from DexHunter (every 5 s) and GeckoTerminal (every 5 min, cross-check); market stats from CoinGecko (every 60 s); pools (every 5 min) and candles (every 60 s) from GeckoTerminal; wallet tracker: Yoroi’s public wallet backend (balances, staking) and Handle.me (ADA Handles), keyless; top-holder details from Koios via the scheduled GitHub Action. Holder data: Cardanoscan, refreshed by a scheduled GitHub Action and re-checked here every 5 minutes.</p>
-  <p><b>Credits:</b> <a href="https://github.com/tradingview/lightweight-charts" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> (Apache-2.0, © TradingView, Inc.) · <a href="https://github.com/d3/d3-hierarchy" target="_blank" rel="noopener">d3-hierarchy</a> (ISC, © Mike Bostock) · SNEK brand assets © SNEK / their owners (<a href="https://www.snek.com/brand" target="_blank" rel="noopener">snek.com</a>) · <a href="https://www.koios.rest/" target="_blank" rel="noopener">Koios</a> community API · <a href="https://handle.me/" target="_blank" rel="noopener">Handle.me</a> API · Yoroi public backend (Emurgo). License texts in <a href="assets/vendor/">assets/vendor</a>.</p>
+  <p><b>Credits:</b> <a href="https://github.com/tradingview/lightweight-charts" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> (Apache-2.0, © TradingView, Inc.) · <a href="https://github.com/d3/d3-hierarchy" target="_blank" rel="noopener">d3-hierarchy</a> (ISC, © Mike Bostock) · <a href="https://github.com/SortableJS/Sortable" target="_blank" rel="noopener">SortableJS</a> (MIT) · SNEK brand assets © SNEK / their owners (<a href="https://www.snek.com/brand" target="_blank" rel="noopener">snek.com</a>) · <a href="https://www.koios.rest/" target="_blank" rel="noopener">Koios</a> community API · <a href="https://handle.me/" target="_blank" rel="noopener">Handle.me</a> API · Yoroi public backend (Emurgo). License texts in <a href="assets/vendor/">assets/vendor</a>.</p>
   <p><a class="btn xfollow" href="https://x.com/intent/follow?screen_name=DavidSandy" target="_blank" rel="noopener">Follow @DavidSandy on X for dashboard updates</a></p>
   <p><b>Fan-made community dashboard by David Sandy. Not affiliated with or endorsed by SNEK. SNEK brand assets © their owners, used per snek.com terms. Not financial advice.</b></p>
   <p>SNEK logo, mascot and token artwork from the official media kit at <a href="https://www.snek.com/brand" target="_blank" rel="noopener">snek.com/brand</a>, used for personal, non-commercial purposes under the <a href="https://www.snek.com/intellectual-property-policy" target="_blank" rel="noopener">SNEK Intellectual Property Policy</a>. This site has no ads, sells nothing and does not suggest endorsement.</p>
@@ -227,6 +213,8 @@
 <script src="assets/fx.js"></script>
 <script src="assets/live.js"></script>
 <script src="assets/wallets.js"></script>
+<script src="assets/vendor/Sortable.min.js"></script>
+<script src="assets/layout.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

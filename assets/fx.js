@@ -134,7 +134,7 @@
     const ids = [...document.querySelectorAll(".tabs a")].map((a) => a.dataset.tab);
     let x0 = 0, y0 = 0, t0 = 0, ok = false;
     document.addEventListener("touchstart", (e) => {
-      if (innerWidth >= 900 || e.touches.length !== 1) { ok = false; return; }
+      if (innerWidth >= 900 || e.touches.length !== 1 || document.body.classList.contains("editing")) { ok = false; return; }
       ok = !e.target.closest("#tvchart,.table-wrap,input,select,textarea,.treemap,.chips,.seg");
       x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
     }, { passive: true });
@@ -146,7 +146,7 @@
       const i = Math.max(0, Math.min(ids.length - 1, ids.indexOf(cur) + (dx < 0 ? 1 : -1)));
       if (ids[i] === cur) return;
       FX.haptic(8);
-      document.getElementById(ids[i]).scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
+      if (window.SNEKLAYOUT) { if (!SNEKLAYOUT.goto(ids[i])) return; } else document.getElementById(ids[i]).scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
       showSwipeHint(dx < 0 ? "→ " : "← ", document.querySelector('.tabs a[data-tab="' + ids[i] + '"]').textContent.trim());
     }, { passive: true });
   }
@@ -159,7 +159,7 @@
   function setupPull(onRefresh) {
     const ind = document.createElement("div"); ind.className = "ptr"; ind.innerHTML = '<img src="assets/brand/snek-face-happy.webp" alt=""><span>Pull to refresh</span>'; document.body.appendChild(ind);
     let y0 = null, dist = 0, busy = false;
-    document.addEventListener("touchstart", (e) => { if (scrollY <= 0 && !busy && e.touches.length === 1 && !e.target.closest("#tvchart")) { y0 = e.touches[0].clientY; dist = 0; } else y0 = null; }, { passive: true });
+    document.addEventListener("touchstart", (e) => { if (scrollY <= 0 && !busy && e.touches.length === 1 && !e.target.closest("#tvchart") && !document.body.classList.contains("editing")) { y0 = e.touches[0].clientY; dist = 0; } else y0 = null; }, { passive: true });
     document.addEventListener("touchmove", (e) => {
       if (y0 === null) return; dist = Math.max(0, e.touches[0].clientY - y0);
       if (dist <= 0) return;

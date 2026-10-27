@@ -503,8 +503,8 @@
     $("whaleMin").addEventListener("change", renderTrades); $("whaleOnly").addEventListener("change", renderTrades); if ($("tradeVenue")) $("tradeVenue").addEventListener("change", renderTrades);
     const tabs = [...document.querySelectorAll(".tabs a")];
     if ("IntersectionObserver" in window) {
-      const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) tabs.forEach((t) => t.classList.toggle("on", t.dataset.tab === e.target.id)); }), { rootMargin: "-45% 0px -50% 0px" });
-      document.querySelectorAll(".sect").forEach((s) => io.observe(s));
+      const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) tabs.forEach((t) => t.classList.toggle("on", t.dataset.tab === e.target.dataset.tab)); }), { rootMargin: "-45% 0px -50% 0px" });
+      document.querySelectorAll("#wgrid > .w").forEach((s) => io.observe(s));
     }
     let deferred = null;
     window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; $("installBtn").hidden = false; });

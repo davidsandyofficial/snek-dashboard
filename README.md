@@ -14,6 +14,16 @@ Live, mobile-first dashboard for SNEK, the Cardano memecoin. Static site, hosted
 - Tools: portfolio tracker (saved in your browser, live value and 24h P/L, optional cost basis), read-only balance lookup from a public addr1/stake1 address via Koios, value calculator, browser price alerts, copy policy ID, share button.
 - Installable PWA (shell cached; live data never served from cache), light/dark theme, skeleton loaders, 44 px tap targets, bottom tab bar on phones.
 
+## Customizable layout
+
+Every card is a widget. Tap **▦** in the header (or **Customize layout** at the bottom) to edit:
+
+- Drag the **⠿** handle, or use **↑ ↓** (works well on touch and with a keyboard).
+- **Pin** keeps a widget at the top; pinned widgets don't move when you rearrange the rest.
+- **✕** hides a widget; hidden widgets are listed in the editor bar to bring back.
+- On wide screens (≥900 px) the **⅓ ½ ⅔ Full** button changes a widget's width. Phones always show one full-width column.
+- **Reset** restores the default layout. The layout is saved only in this browser (`localStorage` key `snek-layout`).
+
 ## Wallet tracker (Wallets tab)
 Inspired by community requests for "beautiful wallet tracking tools". Paste an `addr1…` address, a `stake1…` key or a `$handle`:
 - SNEK and ADA balance, staking status, ADA Handles held, and "exchange-like" signals (big undelegated ADA, ≥20 handles, ≥100 txs/24 h, legacy Byron address). Signals are hints, not proof of ownership.
@@ -41,6 +51,7 @@ Run the updater manually: Actions → "Update data snapshot" → Run workflow, o
 
 ## Credits
 - [TradingView Lightweight Charts™](https://github.com/tradingview/lightweight-charts) v5.2.1, Apache-2.0, © TradingView, Inc. Vendored at `assets/vendor/`, license in `assets/vendor/LICENSE-lightweight-charts.txt`. Chart attribution logo kept on.
+- [SortableJS](https://github.com/SortableJS/Sortable) v1.15.6, MIT, © All contributors to Sortable. Used for drag-to-rearrange widgets. License in `assets/vendor/LICENSE-sortablejs.txt`.
 - [d3-hierarchy](https://github.com/d3/d3-hierarchy) v3.1.2, ISC, © Mike Bostock. Used for the top-holders treemap. License in `assets/vendor/LICENSE-d3-hierarchy.txt`.
 - [Koios](https://www.koios.rest/) community Cardano API ([koios-artifacts](https://github.com/cardano-community/koios-artifacts) spec) for read-only address lookups.
 - Data: CoinGecko, GeckoTerminal, DexHunter, Yoroi public backend, Handle.me, DexScreener, Kraken, Coinbase Exchange, Gate, Bitget, Koios, Cardanoscan (public, keyless endpoints; no affiliation).
