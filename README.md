@@ -14,6 +14,10 @@ Live, mobile-first dashboard for SNEK, the Cardano memecoin. Static site, hosted
 - Tools: portfolio tracker (saved in your browser, live value and 24h P/L, optional cost basis), read-only balance lookup from a public addr1/stake1 address via Koios, value calculator, browser price alerts, copy policy ID, share button.
 - Installable PWA (shell cached; live data never served from cache), light/dark theme, skeleton loaders, 44 px tap targets, bottom tab bar on phones.
 
+## Chart indicators
+
+Tap **ƒx Indicators** above the chart. Overlays: SMA ×2, EMA ×2 (periods configurable), Bollinger Bands (period, std dev), VWAP (daily reset, anchored on 1D) and a volume MA. Oscillators, each in its own pane: RSI, MACD (fast/slow/signal), Stochastic RSI and ATR. All are computed in the browser (`assets/indicators.js`) from the candles on the chart, and your picks are saved in this browser (`localStorage` key `snek-ind`).
+
 ## Customizable layout
 
 Every card is a widget. Tap **▦** in the header (or **Customize layout** at the bottom) to edit:

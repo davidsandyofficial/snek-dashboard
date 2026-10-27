@@ -198,3 +198,20 @@ body.editing .toasts{bottom:auto;top:calc(80px + env(safe-area-inset-top))}
 .wfeed{display:grid;gap:6px}.wfi{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card2)}
 .wfic{font-size:20px;width:28px;text-align:center}
 .kpi .v.up,.up{color:var(--snek)}.kpi .v.down{color:var(--red)}
+/* ---- indicator picker ---- */
+.ind-btn{font-size:14px;gap:6px}.badge{display:inline-flex;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--snek);color:var(--onSnek);font-size:12px;font-weight:700;align-items:center;justify-content:center}
+dialog.sheet{border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--text);padding:0;width:min(560px,96vw);max-height:84vh;overflow:hidden;display:none;flex-direction:column}
+dialog.sheet[open]{display:flex}
+dialog.sheet::backdrop{background:rgba(0,0,0,.5)}
+@media(max-width:600px){dialog.sheet{margin:auto 0 0;width:100vw;max-width:100vw;border-radius:18px 18px 0 0;max-height:82vh;padding-bottom:env(safe-area-inset-bottom)}}
+.sheet-h{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}.sheet-h b{font-size:16px}
+.sheet-b{overflow:auto;padding:4px 14px 14px;-webkit-overflow-scrolling:touch}.sheet-b h4{margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.irow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.itog{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;flex:1 1 200px}.itog input{width:22px;height:22px;accent-color:var(--snek)}
+.itog .iname{display:block;font-weight:600}.itog .ihelp{display:block;line-height:1.3}
+.idot{width:12px;height:12px;border-radius:50%;flex:none}
+.iparams{display:flex;gap:8px}.iparams label{display:flex;flex-direction:column;gap:2px}.iparams input{width:64px;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);padding:0 8px;font:inherit}
+.itog{flex-direction:row!important;font-size:14px;color:var(--text);gap:10px!important}.itog input[type=checkbox]{width:22px!important;min-height:0;height:22px;flex:none;margin:0}
+dialog.sheet{box-sizing:border-box;max-width:96vw}
+@media(max-width:600px){dialog.sheet{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:100%}}
+.sheet-h .btn{flex:none;padding:0 14px;white-space:nowrap}.sheet-h .grow{min-width:0}

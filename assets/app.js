@@ -177,18 +177,45 @@
     });
   }
   function priceFmt() { return state.chart.cur === "usd" ? { type: "price", precision: 8, minMove: 0.00000001 } : { type: "price", precision: 6, minMove: 0.000001 }; }
+  let indSeries = [], indData = {};
+  const PANE_H = 110;
   function buildSeries() {
     if (!chart) return;
     const LW = window.LightweightCharts, c = chartColors();
-    [sMain, sVol].concat(Object.values(sMA)).forEach((s) => { if (s) chart.removeSeries(s); });
-    sMA = {};
+    [sMain, sVol].concat(indSeries.map((x) => x.s)).forEach((s) => { if (s) { try { chart.removeSeries(s); } catch (e) {} } });
+    indSeries = []; sMA = {};
+    try { while (chart.panes().length > 1) chart.removePane(chart.panes().length - 1); } catch (e) {}
     sMain = state.chart.type === "candle"
       ? chart.addSeries(LW.CandlestickSeries, { upColor: c.up, downColor: c.down, borderUpColor: c.up, borderDownColor: c.down, wickUpColor: c.up, wickDownColor: c.down, priceFormat: priceFmt() })
       : chart.addSeries(LW.AreaSeries, { lineColor: c.up, topColor: c.up + "55", bottomColor: c.up + "00", lineWidth: 2, priceFormat: priceFmt() });
     sVol = chart.addSeries(LW.HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "vol", lastValueVisible: false, priceLineVisible: false });
     chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-    state.chart.ma.forEach((n) => { sMA[n] = chart.addSeries(LW.LineSeries, { color: MA_COLORS[n], lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, priceFormat: priceFmt() }); });
+    const IND = window.SNEKIND; let pane = 0;
+    const line = (cfg, key, color, opts, paneIdx) => { const s = chart.addSeries(LW.LineSeries, Object.assign({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }, opts), paneIdx); indSeries.push({ id: cfg.id, key, s }); return s; };
+    if (IND) IND.active().forEach((cfg) => {
+      if (cfg.kind === "overlay") {
+        if (cfg.id === "bb") { line(cfg, "upper", cfg.color, { priceFormat: priceFmt() }, 0); line(cfg, "main", cfg.color, { priceFormat: priceFmt(), lineStyle: 2, lineWidth: 1 }, 0); line(cfg, "lower", cfg.color, { priceFormat: priceFmt() }, 0); }
+        else line(cfg, "main", cfg.color, { priceFormat: priceFmt() }, 0);
+      } else if (cfg.kind === "volume") line(cfg, "main", cfg.color, { priceScaleId: "vol", priceFormat: { type: "volume" } }, 0);
+      else {
+        pane++;
+        const fmt = cfg.id === "atr" ? priceFmt() : cfg.id === "macd" ? { type: "price", precision: state.chart.cur === "usd" ? 9 : 7, minMove: state.chart.cur === "usd" ? 1e-9 : 1e-7 } : { type: "price", precision: 1, minMove: 0.1 };
+        if (cfg.id === "macd") { const h = chart.addSeries(LW.HistogramSeries, { priceLineVisible: false, lastValueVisible: false, priceFormat: fmt }, pane); indSeries.push({ id: cfg.id, key: "hist", s: h, hist: true }); }
+        const m = line(cfg, "main", cfg.color, { priceFormat: fmt, lastValueVisible: true }, pane);
+        if (cfg.id === "macd" || cfg.id === "stochrsi") line(cfg, "signal", "#ff8a65", { priceFormat: fmt }, pane);
+        if (cfg.id === "rsi" || cfg.id === "stochrsi") (cfg.id === "rsi" ? [70, 30] : [80, 20]).forEach((g) => m.createPriceLine({ price: g, color: c.text, lineWidth: 1, lineStyle: 2, axisLabelVisible: false }));
+      }
+    });
+    const el = $("tvchart"); el.style.height = pane ? "calc(clamp(320px,55vh,520px) + " + pane * PANE_H + "px)" : "";
+    try { chart.panes().forEach((p, i) => { if (i > 0) p.setHeight(PANE_H); }); } catch (e) {}
+    const btn = $("indBtn"); if (btn) { const n = IND ? IND.active().length : 0; btn.innerHTML = "ƒx Indicators" + (n ? ' <span class="badge">' + n + "</span>" : ""); }
     paint(true);
+  }
+  function paintIndicators() {
+    const IND = window.SNEKIND; indData = {}; if (!IND) return;
+    const bars = state.chart.bars, c = chartColors();
+    IND.active().forEach((cfg) => { const r = IND.compute(cfg, bars, state.chart.iv); const maps = {}; Object.keys(r).forEach((k) => { if (Array.isArray(r[k])) maps[k] = new Map(r[k].map((p) => [p.time, p.value])); }); indData[cfg.id] = { cfg, r, maps }; });
+    indSeries.forEach((x) => { const d = indData[x.id]; if (!d) return; let data = d.r[x.key] || []; if (x.hist) data = data.map((p) => ({ time: p.time, value: p.value, color: (p.value >= 0 ? c.up : c.down) + "99" })); x.s.setData(data); });
   }
   function sma(bars, n) { const out = []; let sum = 0; for (let i = 0; i < bars.length; i++) { sum += bars[i].close; if (i >= n) sum -= bars[i - n].close; if (i >= n - 1) out.push({ time: bars[i].time, value: sum / n }); } return out; }
   function volBar(b) { const c = chartColors(); return { time: b.time, value: b.volume, color: (b.close >= b.open ? c.up : c.down) + "66" }; }
@@ -196,7 +223,7 @@
     if (!sMain) return; const bars = state.chart.bars;
     sMain.setData(state.chart.type === "candle" ? bars.map((b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })) : bars.map((b) => ({ time: b.time, value: b.close })));
     sVol.setData(bars.map(volBar));
-    Object.keys(sMA).forEach((n) => sMA[n].setData(sma(bars, +n)));
+    paintIndicators();
     if (fit && bars.length) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 120), to: bars.length + 4 });
     showOHLC(bars[bars.length - 1]);
     $("chartSrc").textContent = state.chart.live ? "· live" : bars.length ? "· saved snapshot" : "";
@@ -207,7 +234,7 @@
     const ch = ((b.close - b.open) / b.open) * 100;
     const vu = state.chart.cur === "usd" ? "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(b.volume) : Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(b.volume) + " ₳";
     el.innerHTML = '<span class="muted">' + fmtTime(new Date(b.time * 1000), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "</span><span>O <b>" + f(b.open) + "</b></span><span>H <b>" + f(b.high) + "</b></span><span>L <b>" + f(b.low) + "</b></span><span>C <b>" + f(b.close) + "</b></span>" + pct(ch) + "<span>Vol <b>" + vu + "</b></span>" +
-      state.chart.ma.map((n) => { const s = sma(state.chart.bars.slice(0, state.chart.bars.indexOf(b) + 1).slice(-n), n); return s.length ? '<span style="color:' + MA_COLORS[n] + '">MA' + n + " " + f(s[s.length - 1].value) + "</span>" : ""; }).join("");
+      Object.values(indData).map((d) => { const v = d.maps.main && d.maps.main.get(b.time); if (v == null) return ""; const id = d.cfg.id, osc = id === "rsi" || id === "stochrsi"; const val = osc ? v.toFixed(1) : id === "volma" ? Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v) : id === "macd" ? Number(v.toPrecision(3)).toString() : f(v); const sig = d.maps.signal && d.maps.signal.get(b.time); return '<span style="color:' + d.cfg.color + '">' + window.SNEKIND.label(d.cfg, true) + " " + val + (sig != null && osc ? " / " + sig.toFixed(1) : "") + "</span>"; }).join("");
   }
   const toBars = (list) => list.map((r) => ({ time: r[0], open: +r[1], high: +r[2], low: +r[3], close: +r[4], volume: +r[5] })).sort((a, b) => a.time - b.time).filter((b, i, a) => !i || b.time !== a[i - 1].time);
   function ohlcvURL(limit) { const iv = IVS[state.chart.iv]; return "/pools/" + state.mainPool + "/ohlcv/" + iv[0] + "?aggregate=" + iv[1] + "&limit=" + limit + "&currency=" + (state.chart.cur === "usd" ? "usd" : "token"); }
@@ -243,9 +270,8 @@
         if (!last || b.time > last.time) bars.push(b); else if (b.time === last.time) bars[bars.length - 1] = b; else return;
         sMain.update(state.chart.type === "candle" ? { time: b.time, open: b.open, high: b.high, low: b.low, close: b.close } : { time: b.time, value: b.close });
         sVol.update(volBar(b));
-        Object.keys(sMA).forEach((n) => { const s = sma(bars.slice(-n), +n); if (s.length) sMA[n].update(s[s.length - 1]); });
       });
-      showOHLC(bars[bars.length - 1]);
+      paintIndicators(); showOHLC(bars[bars.length - 1]);
     }).catch(() => {});
   }
   function setupChartControls() {
@@ -254,13 +280,12 @@
       [...chips.children].forEach((b) => { b.classList.toggle("on", b.dataset.v === state.chart.iv); b.setAttribute("aria-pressed", b.dataset.v === state.chart.iv); });
       [...$("typeSeg").children].forEach((b) => b.classList.toggle("on", b.dataset.v === state.chart.type));
       [...$("curSeg").children].forEach((b) => b.classList.toggle("on", b.dataset.v === state.chart.cur));
-      [...$("maSeg").children].forEach((b) => { const on = state.chart.ma.includes(b.dataset.v); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     };
     const on = (id, fn) => $(id).addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { fn(b.dataset.v); mark(); } });
     on("ivChips", (v) => { state.chart.iv = v; store.set("snek-iv", v); loadCandles(); });
     on("typeSeg", (v) => { state.chart.type = v; store.set("snek-type", v); buildSeries(); });
     on("curSeg", (v) => { state.chart.cur = v; store.set("snek-cur", v); buildSeries(); loadCandles(); });
-    on("maSeg", (v) => { const i = state.chart.ma.indexOf(v); if (i >= 0) state.chart.ma.splice(i, 1); else state.chart.ma.push(v); store.set("snek-ma", state.chart.ma); buildSeries(); });
+    if (window.SNEKIND) { $("indBtn").addEventListener("click", () => window.SNEKIND.open()); let t = null; window.SNEKIND.onChange(() => { clearTimeout(t); t = setTimeout(() => { const r = chart && chart.timeScale().getVisibleLogicalRange(); buildSeries(); if (r) chart.timeScale().setVisibleLogicalRange(r); }, 150); }); }
     mark();
   }
   function retheme() {
