@@ -1,6 +1,8 @@
-# SNEK Analytics
+# SNEK Dashboard (Fan-made)
 
-Live, mobile-first dashboard for SNEK, the Cardano memecoin. Static site, hosted free on GitHub Pages.
+> **Fan-made · Unofficial · Not affiliated with SNEK.** Fan-made community dashboard by David Sandy. Not affiliated with or endorsed by SNEK. SNEK brand assets © their owners, used per snek.com terms. Not financial advice.
+
+Live, mobile-first dashboard for SNEK, the Cardano memecoin. Static site, hosted free on GitHub Pages. Non-commercial: no ads, no sales, no donations.
 
 **Live:** https://davidsandyofficial.github.io/snek-dashboard/
 
@@ -28,5 +30,8 @@ Run the updater manually: Actions → "Update data snapshot" → Run workflow, o
 - [d3-hierarchy](https://github.com/d3/d3-hierarchy) v3.1.2, ISC, © Mike Bostock. Used for the top-holders treemap. License in `assets/vendor/LICENSE-d3-hierarchy.txt`.
 - [Koios](https://www.koios.rest/) community Cardano API ([koios-artifacts](https://github.com/cardano-community/koios-artifacts) spec) for read-only address lookups.
 - Data: CoinGecko, GeckoTerminal, Cardanoscan.
+- SNEK logo, mascot and token artwork: official media kit from [snek.com/brand](https://www.snek.com/brand) (`https://www.snek.com/downloads/media-kit.zip`), © SNEK / their owners. Used for personal, non-commercial purposes per the [SNEK Intellectual Property Policy](https://www.snek.com/intellectual-property-policy), which allows this "provided that it does not suggest endorsement or affiliation with SNEK" and does not harm the brand. Details in `assets/brand/SOURCE.md`. Brand colors from the kit: mint `#18f2b2`, off-white `#f4f3ef`, black `#151515`, character palette `#88eaff`, `#5491d9`, `#c684f0`, `#fc4c61`.
 
-Safety: no wallet connection, no seed phrases, nothing is ever signed. Fan-made, not affiliated with SNEK. Not financial advice.
+Safety: no wallet connection, no seed phrases, nothing is ever signed.
+
+Fan-made community dashboard by David Sandy. Not affiliated with or endorsed by SNEK. SNEK brand assets © their owners, used per snek.com terms. Not financial advice.

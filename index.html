@@ -3,19 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SNEK Analytics — live Cardano memecoin dashboard</title>
-<meta name="description" content="Live SNEK price, TradingView-style chart, liquidity, holders, whale trades, portfolio tracker and price alerts.">
-<meta name="theme-color" content="#0b0f0c">
+<title>SNEK Dashboard (Fan-made) — live, unofficial Cardano memecoin analytics</title>
+<meta name="description" content="Fan-made, unofficial SNEK dashboard: live price, TradingView-style chart, liquidity, holders, whale trades, portfolio tracker and price alerts. Not affiliated with SNEK.">
+<meta name="theme-color" content="#05080a">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
-<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/brand/favicon-64.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/style.css">
 <script>try{var t=localStorage.getItem("snek-theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
 <a class="skip" href="#overview">Skip to content</a>
+<div id="splash" class="splash" aria-hidden="true">
+  <img src="assets/brand/snek-face-happy.webp" alt="" width="180" height="120">
+  <div class="splash-title">SNEK Dashboard</div>
+  <div class="fanbadge big">Fan-made · Unofficial · Not affiliated with SNEK</div>
+  <div class="splash-bar"><i></i></div>
+</div>
 <header class="top">
-  <div class="brand"><img src="assets/icons/icon-192.png" alt="" class="logo"><div><h1>SNEK Analytics</h1><p class="muted small hide-sm">Live Cardano memecoin dashboard</p></div></div>
+  <div class="brand"><img src="assets/brand/snek-logomark.svg" alt="SNEK logomark" class="logo" width="34" height="32"><div><h1>SNEK Dashboard</h1><span class="fanbadge" title="This is an unofficial, community-made dashboard. It is not affiliated with or endorsed by SNEK.">Fan-made · Unofficial · Not affiliated with SNEK</span></div></div>
   <div class="ticker" aria-live="polite"><span id="tPrice" class="skel w80">&nbsp;</span><span id="tChg" class="chg"></span></div>
   <div class="actions">
     <button id="shareBtn" class="icon-btn" aria-label="Share" title="Share">↗</button>
@@ -24,6 +30,11 @@
   </div>
 </header>
 <div class="statusbar"><span id="statusDot" class="dot"></span><span id="statusText">Loading…</span></div>
+<div id="fanNotice" class="notice" role="note" hidden>
+  <img src="assets/brand/snek-face-love.webp" alt="" width="48" height="35">
+  <p><b>Heads up: this is a fan-made dashboard.</b> It's built by a community member, is not affiliated with or endorsed by SNEK, and is not financial advice. Official site: <a href="https://www.snek.com/" target="_blank" rel="noopener">snek.com</a>.</p>
+  <button id="fanNoticeClose" class="btn">Got it</button>
+</div>
 
 <nav class="tabs" aria-label="Sections">
   <a href="#overview" data-tab="overview"><span>◎</span>Overview</a>
@@ -164,8 +175,9 @@
 
 <footer class="muted small">
   <p>Live in your browser: CoinGecko API (price, market stats, venues, every 30 s), GeckoTerminal API (pools, trades, candles, every 10 s), Koios (address lookup). Holder data: Cardanoscan, refreshed by a scheduled GitHub Action and re-checked here every 5 minutes.</p>
-  <p><b>Credits:</b> <a href="https://github.com/tradingview/lightweight-charts" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> (Apache-2.0, © TradingView, Inc.) · <a href="https://github.com/d3/d3-hierarchy" target="_blank" rel="noopener">d3-hierarchy</a> (ISC, © Mike Bostock) · <a href="https://www.koios.rest/" target="_blank" rel="noopener">Koios</a> community API. License texts in <a href="assets/vendor/">assets/vendor</a>.</p>
-  <p>Fan-made, not affiliated with SNEK. Not financial advice.</p>
+  <p><b>Credits:</b> <a href="https://github.com/tradingview/lightweight-charts" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> (Apache-2.0, © TradingView, Inc.) · <a href="https://github.com/d3/d3-hierarchy" target="_blank" rel="noopener">d3-hierarchy</a> (ISC, © Mike Bostock) · SNEK brand assets © SNEK / their owners (<a href="https://www.snek.com/brand" target="_blank" rel="noopener">snek.com</a>) · <a href="https://www.koios.rest/" target="_blank" rel="noopener">Koios</a> community API. License texts in <a href="assets/vendor/">assets/vendor</a>.</p>
+  <p><b>Fan-made community dashboard by David Sandy. Not affiliated with or endorsed by SNEK. SNEK brand assets © their owners, used per snek.com terms. Not financial advice.</b></p>
+  <p>SNEK logo, mascot and token artwork from the official media kit at <a href="https://www.snek.com/brand" target="_blank" rel="noopener">snek.com/brand</a>, used for personal, non-commercial purposes under the <a href="https://www.snek.com/intellectual-property-policy" target="_blank" rel="noopener">SNEK Intellectual Property Policy</a>. This site has no ads, sells nothing and does not suggest endorsement.</p>
 </footer>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
