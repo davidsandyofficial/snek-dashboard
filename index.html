@@ -120,6 +120,12 @@
       <div class="row between wrap"><h2>Tracked wallets <span class="muted small" id="wCount"></span></h2><span class="muted small" id="wWatchNote">Saved only in this browser · re-checked every 5 min while open</span></div>
       <div id="wWatch"></div>
     </div>
+    <div class="card w" data-w="wfeed" data-tab="wallets" data-title="Whale feed" data-size="12">
+      <div class="row between wrap gap"><h2>Whale feed</h2><label class="inline">Trades ≥ <select id="wFeedMin"><option value="500">$500</option><option value="1000">$1,000</option><option value="2000">$2,000</option><option value="5000">$5,000</option><option value="10000">$10,000</option></select></label></div>
+      <p class="muted small" id="wFeedNote"></p>
+      <div id="wFeed"><div class="skel h120"></div></div>
+      <p class="muted small">Big trades from DexHunter, GeckoTerminal and CEX WebSockets (refreshes every 15 s while open), balance changes of the top-10 holders from the 30-min snapshot, and moves of wallets you track. Tap <b>Wallet</b> to open it in the tracker.</p>
+    </div>
     <div class="card w" data-w="wtop" data-tab="wallets" data-title="Top holders, labeled" data-size="12">
       <div class="row between wrap"><h2>Top holders, labeled</h2><span class="muted small" id="wTopNote"></span></div>
       <p class="muted small">Names come from ADA Handles held by each wallet and from a small <a href="https://github.com/davidsandyofficial/snek-dashboard/blob/main/assets/labels.json" target="_blank" rel="noopener">community label list</a> that needs a public source for every entry. “Exchange-like” means at least two signals (big undelegated ADA, many handles, very busy, legacy Byron address). Signals are hints, not proof of who owns a wallet.</p>
@@ -212,6 +218,7 @@
 <script src="assets/snapshot.js"></script>
 <script src="assets/fx.js"></script>
 <script src="assets/live.js"></script>
+<script src="assets/history.js"></script>
 <script src="assets/wallets.js"></script>
 <script src="assets/vendor/Sortable.min.js"></script>
 <script src="assets/layout.js"></script>

@@ -393,16 +393,21 @@
     const dex = { Minswap: 1, WingRiders: 1, "CSWAP DEX": 1, SundaeSwap: 1, Splash: 1 };
     bars($("venueChart"), Object.keys(agg).map((k) => ({ label: k, value: agg[k], display: big(agg[k]), meta: dex[k] ? "DEX" : "" })).filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, 10));
   }
-  function renderTrades() {
-    const min = +$("whaleMin").value, only = $("whaleOnly").checked, vf = $("tradeVenue") ? $("tradeVenue").value : "all";
+  function tradeRows(vf) {
     const mp = state.pools.find((p) => p.attributes && p.attributes.address === state.mainPool), mdex = mp && mp.relationships && mp.relationships.dex ? (DEX_NAMES[mp.relationships.dex.data.id] || mp.relationships.dex.data.id) : "Minswap";
-    let rows = vf === "cex" ? [] : state.trades.map((t) => { const a = t.attributes, buy = a.kind === "buy"; return { id: a.tx_hash, venue: mdex, dex: true, time: new Date(a.block_timestamp).getTime(), buy, usd: parseFloat(a.volume_in_usd), snek: parseFloat(buy ? a.to_token_amount : a.from_token_amount), ada: parseFloat(buy ? a.from_token_amount : a.to_token_amount) }; });
+    let rows = vf === "cex" ? [] : state.trades.map((t) => { const a = t.attributes, buy = a.kind === "buy"; return { id: a.tx_hash, addr: a.tx_from_address, venue: mdex, dex: true, time: new Date(a.block_timestamp).getTime(), buy, usd: parseFloat(a.volume_in_usd), snek: parseFloat(buy ? a.to_token_amount : a.from_token_amount), ada: parseFloat(buy ? a.from_token_amount : a.to_token_amount) }; });
     if (vf !== "cex") {
       const have = new Set(rows.map((r) => r.id)), adaUsd = state.market && state.market.adaUsd;
       rows = rows.concat(state.dhTrades.filter((d) => !have.has(d.id) && !have.has(d.alt)).map((d) => Object.assign({}, d, { usd: ok(adaUsd) ? d.ada * adaUsd : NaN })));
     }
     if (LIVE && vf !== "dex") rows = rows.concat(LIVE.trades.map((t) => ({ id: t.id, venue: t.venue, pair: t.pair, dex: false, time: t.time, buy: t.side === "buy", usd: t.usd, snek: t.qty, ada: null })));
     rows.sort((x, y) => y.time - x.time);
+    return rows;
+  }
+  function renderTrades() {
+    const min = +$("whaleMin").value, only = $("whaleOnly").checked, vf = $("tradeVenue") ? $("tradeVenue").value : "all";
+    const mp = state.pools.find((p) => p.attributes && p.attributes.address === state.mainPool), mdex = mp && mp.relationships && mp.relationships.dex ? (DEX_NAMES[mp.relationships.dex.data.id] || mp.relationships.dex.data.id) : "Minswap";
+    let rows = tradeRows(vf);
     const whales = rows.filter((r) => r.usd >= min);
     $("whaleSummary").innerHTML = rows.length ? "🐋 " + whales.length + " of " + rows.length + " recent trades are ≥ $" + min.toLocaleString() + " · whale buys " + big(whales.filter((r) => r.buy).reduce((s, r) => s + r.usd, 0)) + " vs sells " + big(whales.filter((r) => !r.buy).reduce((s, r) => s + r.usd, 0)) : "";
     const show = (only ? whales : rows).slice(0, 25);
@@ -454,7 +459,7 @@
         dhFails = 0;
         state.dhTrades = (r.orders || []).filter((o) => o.token_id_in === LOVELACE || o.token_id_out === LOVELACE).map((o) => {
           const buy = o.token_id_out === TOKEN, ada = buy ? +o.amount_in : +o.actual_out_amount, snek = buy ? +o.actual_out_amount : +o.amount_in;
-          return { id: o.update_tx_hash || o.tx_hash, alt: o.tx_hash, venue: DH_DEX[o.dex] || o.dex, dex: true, time: Date.parse(o.last_update || o.submission_time), buy, ada, snek };
+          return { id: o.update_tx_hash || o.tx_hash, alt: o.tx_hash, addr: o.user_address || o.address || null, venue: DH_DEX[o.dex] || o.dex, dex: true, time: Date.parse(o.last_update || o.submission_time), buy, ada, snek };
         }).filter((x) => x.ada > 0 && x.snek > 0);
       }).catch((e) => { dhFails++; dhPauseUntil = Date.now() + Math.min(120000, 10000 * Math.pow(2, dhFails - 1)); throw e; });
   }
@@ -519,7 +524,7 @@
   }
 
   function init() {
-    window.SNEKAPP = { state, toast };
+    window.SNEKAPP = { state, toast, tradeRows: () => tradeRows("all") };
     loadSnapshot(); seedSpark(); setupChrome();
     if (FX) FX.init({ onRefresh: () => Promise.all([refresh(true), refreshHolders()]).then(() => { loadCandles(); toast("Updated", "ok"); }) }); setupPortfolio(); setupAlerts(); setupChartControls(); initChart();
     renderMarket(); renderHolders(); renderPools(); renderVenues(); renderTrades(); renderStatus();

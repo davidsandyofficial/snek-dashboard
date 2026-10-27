@@ -213,6 +213,41 @@ def wallets(top):
     return out
 
 
+def anchors():
+    """Reference (block, tx) pairs ~1/7/30/90/365 days back. The browser passes one to Yoroi's public
+    tx-history API as `after`, so it can read a wallet's recent activity without paging from genesis."""
+    tip = json.loads(urllib.request.urlopen(urllib.request.Request(KOIOS + "/tip", headers={"User-Agent": UA}), timeout=30).read())[0]
+    out = []
+    for days in (1, 7, 30, 90, 365):
+        h = tip["block_height"] - days * 4320
+        for k in range(12):  # step back until a block with transactions
+            b = get(f"{KOIOS}/blocks?block_height=eq.{h - k}&select=hash,block_height,block_time,tx_count", tries=2)
+            if b and b[0].get("tx_count"):
+                tx = kpost("/block_txs", {"_block_hashes": [b[0]["hash"]]})
+                if tx:
+                    out.append({"days": days, "block": b[0]["hash"], "tx": tx[0]["tx_hash"], "height": b[0]["block_height"], "time": b[0]["block_time"]})
+                    break
+            time.sleep(0.5)
+    return out
+
+
+def whale_moves(prev, top):
+    """Balance changes of the top-10 holders between two snapshots (~30 min apart), newest first, rolling 60."""
+    old = {r[3]: r[1] for r in ((prev.get("holders") or {}).get("top") or []) if len(r) > 3 and r[3]}
+    names = {w.get("address"): w for w in ((prev.get("holders") or {}).get("wallets") or [])}
+    moves = list(prev.get("whaleMoves") or [])
+    if old:
+        for rank, r in enumerate(top, 1):
+            if len(r) < 4 or not r[3] or r[3] not in old:
+                continue
+            d = r[1] - old[r[3]]
+            if abs(d) >= 1_000_000:
+                w = names.get(r[3]) or {}
+                moves.insert(0, {"t": NOW, "rank": rank, "address": r[3], "short": r[0], "delta": d, "snek": r[1],
+                                 "label": w.get("label") or w.get("defaultHandle") or (("$" + w["handleSample"][0]) if w.get("handles") == 1 and w.get("handleSample") else None)})
+    return moves[:60]
+
+
 def main():
     prev = load_prev()
     snap = dict(prev)
@@ -230,6 +265,7 @@ def main():
                 snap[name] = fn()
                 if name == "holders":
                     try:
+                        snap["whaleMoves"] = whale_moves(prev, snap["holders"]["top"]); status["whaleMoves"] = "ok"
                         snap["holders"]["wallets"] = wallets(snap["holders"]["top"])
                         status["wallets"] = "ok"
                     except Exception as e:  # noqa
@@ -240,6 +276,10 @@ def main():
             status[name] = "ok"
         except Exception as e:
             status[name] = f"kept previous ({type(e).__name__}: {e})"
+    try:
+        snap["anchors"] = anchors(); status["anchors"] = "ok"
+    except Exception as e:  # noqa
+        status["anchors"] = f"kept previous ({type(e).__name__}: {e})"
     snap.pop("series", None)
     snap["generatedAt"] = NOW
     snap["updateStatus"] = status

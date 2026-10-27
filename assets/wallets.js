@@ -113,12 +113,12 @@
     const r = await yoroi("/txs/utxoSumForAddresses", { addresses: [address] });
     if (!r) return { ada: 0, snek: 0 };
     const t = (r.tokensBalance || []).find((x) => x.assetId === SNEK_ID);
-    return { ada: +(r.sum || 0) / 1e6, snek: t ? +t.quantity : 0 };
+    return { ada: +(r.sum || 0) / 1e6, snek: t ? +t.quantity : 0, tokens: r.tokensBalance || [] };
   }
   async function load(p, onStep) {
     const w = await resolve(p); onStep && onStep(w);
     const tm = topMatch(w); if (tm) ["tx24", "tx24Capped", "rank", "pct"].forEach((k) => { if (tm[k] != null) w[k] = tm[k]; });
-    if (w.address) { const b = await balanceOf(w.address); w.snek = b.snek; w.ada = b.ada; w.scope = "address"; onStep && onStep(w); }
+    if (w.address) { const b = await balanceOf(w.address); w.snek = b.snek; w.ada = b.ada; w.tokens = b.tokens; w.scope = "address"; onStep && onStep(w); }
     if (w.stake) {
       try {
         const h = stakeHex(w.stake), st = h && await yoroi("/account/state", { addresses: [h] });
@@ -155,6 +155,10 @@
       (noBal && !loading ? '<p class="small warn">Balances need an address: paste an <span class="mono">addr1…</span> or a $handle (a stake key alone can’t be summed with the free APIs).</p>' : w.scope === "address" && !loading ? '<p class="muted small">Balances are for this address. Staking and handles cover the whole stake key.</p>' : "") +
       (w.handleSample && w.handleSample.length ? '<div class="hchips">' + w.handleSample.map((h) => '<span class="hchip">$' + esc(h) + "</span>").join("") + (w.handles > w.handleSample.length ? '<span class="muted small">+' + n0(w.handles - w.handleSample.length) + " more</span>" : "") + "</div>" : "") +
       '<ul class="signals">' + s.list.map((x) => '<li class="' + (x[1] ? "on" : "") + '">' + (x[1] ? "●" : "○") + " " + esc(x[0]) + "</li>").join("") + "</ul>" +
+      (loading ? "" : '<div class="row gap wrap wacts">' + (w.address ? '<button class="btn" data-act="activity">⏱ Activity &amp; PnL</button>' : "") + '<button class="btn" data-act="cmpopen">⇆ Compare</button><button class="btn" data-act="share">↗ Share</button></div>' +
+        '<div id="wCmpBox" hidden><form class="wsearch mt" id="wCmpForm"><input id="wCmpIn" class="grow" placeholder="Compare with addr1…, stake1… or $handle" list="wCmpList" autocomplete="off" spellcheck="false" autocapitalize="off"><datalist id="wCmpList">' + watch().filter((x) => x.id !== id).map((x) => '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>").join("") + '</datalist><button class="btn primary">Compare</button></form>' +
+        (watch().filter((x) => x.id !== id).length ? '<div class="chips wchips">' + watch().filter((x) => x.id !== id).slice(0, 6).map((x) => '<button type="button" data-cmp="' + esc(x.id) + '">' + esc(x.name) + "</button>").join("") + "</div>" : "") + '<div id="wCmp"></div></div>' +
+        '<div id="wHold" class="wsec"></div><div id="wAct" class="wsec"></div>') +
       '<p class="small"><a href="https://cardanoscan.io/' + (w.stake ? "stakekey/" : "address/") + encodeURIComponent(id) + '" target="_blank" rel="noopener">Open on Cardanoscan</a> · <a href="https://pool.pm/' + encodeURIComponent(id) + '" target="_blank" rel="noopener">pool.pm</a>' + (loading ? ' · <span class="muted">loading on-chain data…</span>' : w.t ? ' · <span class="muted">checked ' + tz(w.t) + "</span>" : "") + "</p>";
   }
   function renderProfile(w, loading) { current = w; $("wProfile").innerHTML = profileHTML(w, loading); }
@@ -162,8 +166,174 @@
     const p = parse(q); const el = $("wProfile");
     if (!p) { el.innerHTML = '<p class="small warn">That doesn’t look like an addr1…, stake1… or $handle.</p>'; return; }
     el.innerHTML = '<div class="skel h120"></div>';
-    try { const w = await load(p, (x) => renderProfile(x, true)); renderProfile(w, false); }
+    try { const w = await load(p, (x) => renderProfile(x, true)); w.query = q.trim(); renderProfile(w, false); renderHoldings(w); }
     catch (e) { el.innerHTML = '<p class="small warn">' + esc(e.message || "Lookup failed") + ". The free APIs can be busy, so try again in a moment.</p>"; }
+  }
+
+  // ---------- holdings (all native tokens) ----------
+  const REG = "https://tokens.cardano.org/metadata/query", DHP = "https://api-us.dexhunterv3.app/swap/averagePrice/ADA/";
+  const regCache = {}, pxCache = {};
+  async function registry(ids) {
+    const need = ids.filter((i) => !(i in regCache)).slice(0, 60);
+    if (need.length) {
+      try {
+        const r = await req(REG, { subjects: need, properties: ["name", "ticker", "decimals"] });
+        need.forEach((i) => (regCache[i] = null));
+        ((r && r.subjects) || []).forEach((s) => { regCache[s.subject] = { name: s.name && s.name.value, ticker: s.ticker && s.ticker.value, decimals: s.decimals ? +s.decimals.value : 0 }; });
+      } catch (e) {}
+    }
+    const o = {}; ids.forEach((i) => (o[i] = regCache[i] || null)); return o;
+  }
+  async function adaPrice(unit) {
+    const c = pxCache[unit]; if (c && Date.now() - c.t < 300000) return c.v;
+    let v = null; try { const r = await fetch(DHP + unit, { signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined }).then((x) => (x.ok ? x.json() : null)); v = r && ok(+r.price_ba) && +r.price_ba > 0 ? +r.price_ba : null; } catch (e) {}
+    pxCache[unit] = { t: Date.now(), v }; return v;
+  }
+  const asciiName = (h) => { const x = h.startsWith("0014df10") || h.startsWith("000de140") || h.startsWith("000643b0") ? h.slice(8) : h; try { const s = decodeURIComponent(x.replace(/../g, "%$&")); return /^[\x20-\x7e]{1,32}$/.test(s) ? s : null; } catch (e) { return null; } };
+  async function renderHoldings(w) {
+    const el = $("wHold"); if (!el || !w.tokens) return;
+    const adaUsd = app().state && app().state.market && app().state.market.adaUsd;
+    const toks = w.tokens.filter((t) => t.assetId !== SNEK_ID).map((t) => { const [pol, nm] = t.assetId.split("."); return { unit: pol + (nm || ""), pol, nm: nm || "", q: +t.quantity }; });
+    const handles = toks.filter((t) => t.pol === "f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a").length;
+    el.innerHTML = '<h3>Holdings</h3><div class="skel h56"></div>';
+    const meta = await registry(toks.map((t) => t.unit));
+    const fung = toks.filter((t) => meta[t.unit]).map((t) => Object.assign(t, meta[t.unit], { amt: t.q / Math.pow(10, meta[t.unit].decimals || 0) }));
+    const other = toks.length - fung.length - handles;
+    for (const t of fung.slice(0, 12)) t.ada = await adaPrice(t.unit);
+    const p = price(), rows = [{ name: "ADA", amt: w.ada, usd: ok(adaUsd) ? w.ada * adaUsd : null }, { name: "SNEK", amt: w.snek, usd: p ? w.snek * p : null }]
+      .concat(fung.map((t) => ({ name: t.ticker || t.name || asciiName(t.nm) || short(t.unit), sub: t.name && t.ticker ? t.name : "", amt: t.amt, usd: ok(t.ada) && ok(adaUsd) ? t.amt * t.ada * adaUsd : null })));
+    rows.sort((a, b) => (b.usd || 0) - (a.usd || 0));
+    const total = rows.reduce((s, r) => s + (r.usd || 0), 0);
+    if (current !== w) return;
+    el.innerHTML = '<div class="row between wrap"><h3>Holdings</h3><span class="small">' + (total ? "≈ " + usdc(total) + ' <span class="muted">priced tokens</span>' : "") + "</span></div>" +
+      '<div class="table-wrap"><table class="htable"><tr><th>Token</th><th>Amount</th><th>Value</th></tr>' + rows.slice(0, 14).map((r) => "<tr><td><b>" + esc(r.name) + "</b>" + (r.sub ? '<div class="muted small">' + esc(r.sub) + "</div>" : "") + "</td><td>" + cmp(r.amt) + "</td><td>" + (ok(r.usd) ? (r.usd > 0 && r.usd < 0.01 ? "<$0.01" : usdc(r.usd)) : '<span class="muted">unavailable</span>') + "</td></tr>").join("") + "</table></div>" +
+      '<p class="muted small">' + (rows.length > 14 ? rows.length - 14 + " more registered tokens · " : "") + (handles ? n0(handles) + " ADA Handles · " : "") + (other > 0 ? n0(other) + " NFTs or unregistered tokens · " : "") + "Names from the Cardano Token Registry, prices from DexHunter (ADA) × ADA/USD. This address only.</p>";
+  }
+
+  // ---------- activity: recent transactions with SNEK in/out ----------
+  const anchorsList = () => ((window.SNEK_SNAPSHOT && window.SNEK_SNAPSHOT.anchors) || []).slice().sort((a, b) => a.days - b.days);
+  async function pages(addr, best, after, maxPages, onPage) {
+    const out = []; let cur = after, capped = false;
+    for (let i = 0; i < maxPages; i++) {
+      const body = { addresses: [addr], untilBlock: best.hash }; if (cur) body.after = { block: cur.block, tx: cur.tx };
+      const r = await yoroi("/v2/txs/history", body);
+      if (!Array.isArray(r)) throw new Error((r && r.error && r.error.response) || "history unavailable");
+      out.push(...r); onPage && onPage(out.length);
+      if (r.length < 50) { capped = false; break; }
+      capped = true; const l = r[r.length - 1]; cur = { block: l.block_hash, tx: l.hash };
+    }
+    return { txs: out, capped, next: cur };
+  }
+  function summarize(addr, t) {
+    let dAda = 0, dSnek = 0, otherTok = 0, script = false;
+    const add = (io, sign) => io.forEach((x) => {
+      if (x.address !== addr) { const i = addrInfo(x.address); if (i && i.script) script = true; return; }
+      dAda += sign * +x.amount;
+      (x.assets || []).forEach((a) => { if (a.assetId === SNEK_ID) dSnek += sign * +a.amount; else otherTok += 1; });
+    });
+    add(t.outputs || [], 1); add(t.inputs || [], -1);
+    const ada = dAda / 1e6, kind = dSnek > 0 && ada < -2 ? "Swap in" : dSnek < 0 && ada > 1 ? "Swap out" : dSnek > 0 ? "SNEK in" : dSnek < 0 ? "SNEK out" : ada > 0 ? "ADA in" : "ADA out";
+    return { hash: t.hash, time: Date.parse(t.time), block: t.block_num, ada, snek: dSnek, fee: +t.fee / 1e6, kind, script, ok: t.tx_state === "Successful" && t.valid_contract !== false, other: otherTok };
+  }
+  async function loadActivity(w, more) {
+    const el = $("wAct"); if (!el || !w.address) return;
+    const st = w.act || (w.act = { rows: [], from: null });
+    el.innerHTML = '<h3>Activity</h3><p class="muted small" id="wActProg">Reading recent transactions…</p>';
+    try {
+      const best = await yoroi("/v2/bestblock");
+      if (more && st.next) {
+        const r = await pages(w.address, best, st.next, 6, (n) => prog(n));
+        st.rows = st.rows.concat(r.txs.map((t) => summarize(w.address, t))); st.capped = r.capped; st.next = r.next;
+      } else {
+        const A = anchorsList(); let res = null, used = null;
+        for (const a of A.concat([null])) {
+          const r = await pages(w.address, best, a ? { block: a.block, tx: a.tx } : null, 6, (n) => prog(n, a));
+          if (a === null && r.capped && res) break; // tiny-window result beats the oldest 300 since genesis
+          res = r; used = a;
+          if (r.txs.length >= 25 || r.capped) break;
+        }
+        st.rows = res.txs.map((t) => summarize(w.address, t)); st.capped = res.capped; st.next = res.next; st.from = used ? used.time * 1000 : null; st.days = used ? used.days : null;
+      }
+      const seen = new Set(); st.rows = st.rows.filter((r) => (seen.has(r.hash) ? false : seen.add(r.hash)));
+      st.rows.sort((a, b) => b.time - a.time);
+      await pnl(st);
+      if (current === w) renderActivity(w);
+    } catch (e) { el.innerHTML = '<h3>Activity</h3><p class="small warn">Couldn’t read transactions: ' + esc(e.message) + ". Try again in a moment.</p>"; }
+    function prog(n, a) { const p = $("wActProg"); if (p) p.textContent = "Reading transactions" + (a ? " from the last " + a.days + (a.days === 1 ? " day" : " days") : " since the wallet’s first one") + "… " + n; }
+  }
+  async function pnl(st) {
+    const H = window.SNEKHIST; if (!H) return;
+    for (const r of st.rows) { if (r.snek && r.px === undefined) { const q = await H.priceAt(Math.floor(r.time / 1000), "usd"); r.px = q ? q.price : null; r.pxSrc = q ? q.src : null; } }
+    const ins = st.rows.filter((r) => r.snek > 0 && ok(r.px)), outs = st.rows.filter((r) => r.snek < 0 && ok(r.px));
+    const qIn = ins.reduce((s, r) => s + r.snek, 0), cIn = ins.reduce((s, r) => s + r.snek * r.px, 0);
+    const qOut = outs.reduce((s, r) => s - r.snek, 0), vOut = outs.reduce((s, r) => s - r.snek * r.px, 0);
+    const avgIn = qIn ? cIn / qIn : null, p = price();
+    st.pnl = { qIn, cIn, qOut, vOut, avgIn, avgOut: qOut ? vOut / qOut : null, realized: avgIn && qOut ? (vOut / qOut - avgIn) * Math.min(qOut, qIn) : null, unreal: avgIn && p ? (qIn - Math.min(qOut, qIn)) * (p - avgIn) : null, missing: st.rows.filter((r) => r.snek && !ok(r.px)).length };
+  }
+  function renderActivity(w) {
+    const el = $("wAct"), st = w.act; if (!el || !st) return;
+    const rows = st.rows, P = st.pnl || {}, showN = st.show || 15;
+    const since = st.from ? "since " + tz(st.from) : rows.length ? "since " + tz(rows[rows.length - 1].time) : "";
+    const net = rows.reduce((s, r) => s + r.snek, 0), sIn = rows.filter((r) => r.snek > 0).reduce((s, r) => s + r.snek, 0), sOut = -rows.filter((r) => r.snek < 0).reduce((s, r) => s + r.snek, 0);
+    const k = (l, v, cls) => '<div class="kpi"><div class="l">' + l + '</div><div class="v ' + (cls || "") + '">' + v + "</div></div>";
+    el.innerHTML = '<div class="row between wrap"><h3>Activity</h3><span class="muted small">' + n0(rows.length) + " txs " + esc(since) + (st.capped ? " · more available" : "") + "</span></div>" +
+      '<div class="kpis wk">' + k("SNEK in", "+" + cmp(sIn), "up") + k("SNEK out", "−" + cmp(sOut), "down") + k("Net SNEK", signed(net), net > 0 ? "up" : net < 0 ? "down" : "") +
+      k("Avg in price", ok(P.avgIn) ? "$" + Number(P.avgIn.toPrecision(3)) : "–") + k("PnL estimate", ok(P.realized) || ok(P.unreal) ? '<span class="' + ((P.realized || 0) + (P.unreal || 0) >= 0 ? "up" : "down") + '">' + ((P.realized || 0) + (P.unreal || 0) >= 0 ? "+" : "−") + usdc(Math.abs((P.realized || 0) + (P.unreal || 0))) + "</span>" : "–") + "</div>" +
+      '<p class="muted small">PnL estimate covers only the transactions loaded here: SNEK received is valued at the hourly USD close when it arrived, SNEK sent at the close when it left' + (ok(P.realized) ? " (realized " + (P.realized >= 0 ? "+" : "−") + usdc(Math.abs(P.realized)) + ", unrealized " + (P.unreal >= 0 ? "+" : "−") + usdc(Math.abs(P.unreal || 0)) + ")" : "") + ". Transfers between your own wallets count as in/out. Not financial or tax advice." + (P.missing ? " " + P.missing + " txs had no candle to price them." : "") + "</p>" +
+      '<div class="wtx">' + rows.slice(0, showN).map((r) => '<a class="wtxr" href="https://cardanoscan.io/transaction/' + r.hash + '" target="_blank" rel="noopener"><span class="wk ' + (r.snek > 0 ? "up" : r.snek < 0 ? "down" : "muted") + '">' + esc(r.kind) + (r.ok ? "" : " ⚠") + '</span><span class="wt muted small">' + tz(r.time) + '</span><span class="wv">' + (r.snek ? '<b class="' + (r.snek > 0 ? "up" : "down") + '">' + signed(r.snek) + " SNEK</b>" : "") + '<span class="muted small">' + (r.ada >= 0 ? "+" : "−") + cmp(Math.abs(r.ada)) + " ADA" + (ok(r.px) && r.snek ? " · ≈" + usdc(Math.abs(r.snek * r.px)) : "") + "</span></span></a>").join("") + "</div>" +
+      '<div class="row gap wrap mt">' + (rows.length > showN ? '<button class="btn" data-act="actmore">Show more</button>' : "") + (st.capped ? '<button class="btn" data-act="actnext">Load newer txs</button>' : "") + '<button class="btn" data-act="csv">⬇ CSV</button></div>' +
+      '<p class="muted small">From Yoroi’s public backend · this address only · times CT.</p>';
+  }
+  function csv(w) {
+    const st = w.act; if (!st || !st.rows.length) return;
+    const head = ["time_utc", "time_ct", "tx_hash", "type", "snek_change", "ada_change", "fee_ada", "snek_usd_price_at_time", "snek_usd_value", "other_tokens_moved", "status"];
+    const ct = (t) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(t));
+    const lines = [head.join(",")].concat(st.rows.map((r) => [new Date(r.time).toISOString(), '"' + ct(r.time) + '"', r.hash, r.kind, r.snek, r.ada.toFixed(6), r.fee.toFixed(6), ok(r.px) ? r.px : "", ok(r.px) && r.snek ? (r.snek * r.px).toFixed(2) : "", r.other, r.ok ? "ok" : "failed"].join(",")));
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv" }), a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "snek-wallet-" + (w.address || "").slice(-8) + "-" + new Date().toISOString().slice(0, 10) + ".csv"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast("CSV saved (" + st.rows.length + " txs)", "ok");
+  }
+  function shareLink(w) {
+    const q = w.query && w.query.startsWith("$") ? w.query : w.address || w.stake;
+    const url = location.href.split("#")[0] + "#wallet=" + encodeURIComponent(q);
+    const data = { title: nameOf(w).text + " · SNEK wallet (fan-made dashboard)", text: nameOf(w).text + " on the fan-made SNEK dashboard", url };
+    if (navigator.share) navigator.share(data).catch(() => {}); else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast("Link copied", "ok"), () => toast(url));
+    history.replaceState(null, "", "#wallet=" + encodeURIComponent(q));
+  }
+
+  // ---------- compare two wallets ----------
+  async function compare(a, q) {
+    const el = $("wCmp"); if (!el) return;
+    const p = parse(q); if (!p) { el.innerHTML = '<p class="small warn">Enter an addr1…, stake1… or $handle to compare.</p>'; return; }
+    el.innerHTML = '<div class="skel h120"></div>';
+    try {
+      const b = await load(p);
+      const pr = price(), rows = [
+        ["SNEK", (x) => cmp(x.snek)], ["% of supply", (x) => (ok(x.snek) ? (x.snek / circ() * 100).toFixed(3) + "%" : "–")], ["SNEK value", (x) => usdc(pr && ok(x.snek) ? x.snek * pr : null)],
+        ["ADA", (x) => cmp(x.ada)], ["Staking", (x) => (!x.stake ? "No stake key" : x.stakeStatus === "registered" ? (x.pool ? "Delegated" : "Not delegated") : x.stakeStatus ? "Not staking" : "–")],
+        ["ADA Handles", (x) => (ok(x.handles) ? n0(x.handles) : "–")], ["Top-holder rank", (x) => (x.rank ? "#" + x.rank : "–")], ["Txs, 24 h", (x) => (ok(x.tx24) ? n0(x.tx24) : "–")],
+        ["Exchange-like signals", (x) => signals(x).count + " of 4"],
+      ];
+      const ratio = ok(a.snek) && ok(b.snek) && b.snek > 0 ? a.snek / b.snek : null;
+      el.innerHTML = '<div class="table-wrap"><table class="ctable"><tr><th></th><th>' + esc(nameOf(a).text) + "</th><th>" + esc(nameOf(b).text) + "</th></tr>" + rows.map((r) => "<tr><td class=\"muted\">" + r[0] + "</td><td>" + r[1](a) + "</td><td>" + r[1](b) + "</td></tr>").join("") + "</table></div>" +
+        (ratio ? '<p class="small">' + esc(nameOf(a).text) + " holds <b>" + (ratio >= 1 ? ratio.toFixed(ratio > 10 ? 0 : 2) + "×" : (1 / ratio).toFixed(1 / ratio > 10 ? 0 : 2) + "× less") + "</b> SNEK than " + esc(nameOf(b).text) + ".</p>" : "");
+    } catch (e) { el.innerHTML = '<p class="small warn">' + esc(e.message || "Compare failed") + "</p>"; }
+  }
+
+  // ---------- whale feed: big trades + top-holder moves + your tracked wallets ----------
+  const LOG_KEY = "snek-watchlog";
+  function renderFeed() {
+    const el = $("wFeed"); if (!el) return;
+    const min = +(store.get("snek-feedmin", 2000)), S = window.SNEK_SNAPSHOT || {}, items = [];
+    const tr = (app().tradeRows && app().tradeRows()) || [];
+    tr.filter((r) => ok(r.usd) && r.usd >= min).forEach((r) => items.push({ t: r.time, icon: r.buy ? "🐋" : "📤", cls: r.buy ? "up" : "down", text: (r.buy ? "Buy " : "Sell ") + usdc(r.usd) + " · " + cmp(r.snek) + " SNEK", sub: r.venue + (r.dex ? " · on-chain" : " · CEX"), addr: r.addr, link: r.dex && r.id && /^[0-9a-f]{64}$/.test(r.id) ? "https://cardanoscan.io/transaction/" + r.id : null }));
+    (S.whaleMoves || []).forEach((m) => items.push({ t: Date.parse(m.t), icon: m.delta > 0 ? "⬆" : "⬇", cls: m.delta > 0 ? "up" : "down", text: "Top holder #" + m.rank + " " + signed(m.delta) + " SNEK", sub: (m.label || short(m.address)) + " · 30-min snapshot", addr: m.address }));
+    store.get(LOG_KEY, []).forEach((m) => items.push({ t: m.t, icon: "★", cls: m.d > 0 ? "up" : "down", text: m.name + " " + signed(m.d) + " SNEK", sub: "Your tracked wallet", addr: m.id }));
+    items.sort((a, b) => b.t - a.t);
+    $("wFeedNote").textContent = "Trades ≥ " + usdc(min) + " · top-10 holder moves ≥ 1M SNEK · your tracked wallets";
+    el.innerHTML = items.length ? '<div class="wfeed">' + items.slice(0, 30).map((i) => '<div class="wfi"><span class="wfic">' + i.icon + '</span><div class="grow"><div class="' + i.cls + '"><b>' + esc(i.text) + '</b></div><div class="muted small">' + esc(i.sub) + " · " + tz(i.t) + "</div></div>" +
+      (i.addr ? '<button class="linkbtn wopen" data-id="' + esc(i.addr) + '">Wallet</button>' : "") + (i.link ? ' <a class="linkbtn" href="' + i.link + '" target="_blank" rel="noopener">Tx</a>' : "") + "</div>").join("") + "</div>"
+      : '<p class="muted small">No whale moves in the latest data. Lower the threshold or check back soon.</p>';
   }
 
   // ---------- watchlist ----------
@@ -203,7 +373,7 @@
           const diff = snek - y.snek; y.prev = y.snek; y.snek = snek; y.last = Date.now();
           if (diff !== 0) { y.hist.push([Date.now(), snek]); if (y.hist.length > 100) y.hist = y.hist.slice(-100); }
           saveWatch(l);
-          if (Math.abs(diff) >= Math.max(1e6, 0.005 * Math.max(1, snek - diff))) {
+          if (Math.abs(diff) >= Math.max(1e6, 0.005 * Math.max(1, snek - diff))) { const lg = store.get(LOG_KEY, []); lg.unshift({ t: Date.now(), id: y.id, name: y.name, d: diff }); store.set(LOG_KEY, lg.slice(0, 40)); renderFeed();
             toast((diff > 0 ? "🐋 " : "📤 ") + y.name + " " + signed(diff) + " SNEK", "whale");
             if (FX()) FX().haptic([20, 40, 20]);
           }
@@ -243,8 +413,27 @@
     $("wSearch").addEventListener("submit", (e) => { e.preventDefault(); $("wInput").blur(); lookup($("wInput").value); });
     $("wProfile").addEventListener("click", (e) => {
       if (e.target.id === "wTrackBtn" && current) track(current);
+      const act = e.target.closest("[data-act]"), w = current;
+      if (act && w) {
+        const a = act.dataset.act;
+        if (a === "activity") { act.disabled = true; loadActivity(w).then(() => { act.disabled = false; }); }
+        else if (a === "actmore") { w.act.show = (w.act.show || 15) + 30; renderActivity(w); }
+        else if (a === "actnext") loadActivity(w, true);
+        else if (a === "csv") csv(w);
+        else if (a === "share") shareLink(w);
+        else if (a === "cmpopen") { const b = $("wCmpBox"); b.hidden = !b.hidden; if (!b.hidden) $("wCmpIn").focus(); }
+      }
+      const cb = e.target.closest("[data-cmp]"); if (cb && w) { $("wCmpIn").value = cb.dataset.cmp; compare(w, cb.dataset.cmp); }
       const c = e.target.closest("[data-copy]"); if (c) { navigator.clipboard && navigator.clipboard.writeText(c.dataset.copy).then(() => toast("Copied", "ok"), () => {}); }
     });
+    $("wProfile").addEventListener("submit", (e) => { if (e.target.id === "wCmpForm") { e.preventDefault(); if (current) compare(current, $("wCmpIn").value); } });
+    const feed = $("wFeed");
+    if (feed) {
+      feed.addEventListener("click", (e) => { const o = e.target.closest(".wopen"); if (o) { $("wInput").value = o.dataset.id; lookup(o.dataset.id); $("wallets").scrollIntoView({ behavior: "smooth" }); } });
+      const sel = $("wFeedMin"); if (sel) { sel.value = String(store.get("snek-feedmin", 2000)); sel.addEventListener("change", () => { store.set("snek-feedmin", +sel.value); renderFeed(); }); }
+      setTimeout(renderFeed, 4000); setInterval(() => { if (document.visibilityState === "visible") renderFeed(); }, 15000);
+    }
+    window.addEventListener("hashchange", () => { const m = location.hash.match(/^#wallet=(.+)$/); if (m) { const q = decodeURIComponent(m[1]); if (!current || current.query !== q) { $("wInput").value = q; lookup(q); $("wallets").scrollIntoView({ behavior: "smooth" }); } } });
     $("wWatch").addEventListener("click", (e) => {
       const d = e.target.closest(".wdel"); if (d) { saveWatch(watch().filter((x) => x.id !== d.dataset.id)); renderWatch(); return; }
       const o = e.target.closest(".wopen"); if (o) { $("wInput").value = o.dataset.id; lookup(o.dataset.id); $("wallets").scrollIntoView({ behavior: "smooth" }); }
@@ -257,6 +446,6 @@
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && watch().some((x) => Date.now() - x.last > 300000)) refreshWatch(); });
     const m = location.hash.match(/^#wallet=(.+)$/); if (m) { const q = decodeURIComponent(m[1]); $("wInput").value = q; lookup(q); setTimeout(() => $("wallets").scrollIntoView(), 300); }
   }
-  window.SNEKWALLETS = { lookup, refreshWatch, signals, parse, balanceOf, addrInfo };
+  window.SNEKWALLETS = { lookup, refreshWatch, signals, parse, balanceOf, addrInfo, renderFeed, current: () => current };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
