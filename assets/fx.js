@@ -10,7 +10,9 @@
 
   // ---- haptics ----
   // Only after the user has interacted (browsers block vibrate before a tap); silently skipped on iOS/desktop.
-  FX.haptic = (p) => { try { const ua = navigator.userActivation; if (!reduced() && navigator.vibrate && (!ua || ua.hasBeenActive)) navigator.vibrate(p || 8); } catch (e) {} };
+  // Vibration is OFF unless the user turns on Settings → Haptics (stored as snek-settings.haptics === true).
+  const hapticsOn = () => { try { return (JSON.parse(localStorage.getItem("snek-settings") || "{}") || {}).haptics === true; } catch (e) { return false; } };
+  FX.haptic = (p) => { try { const ua = navigator.userActivation; if (hapticsOn() && !reduced() && navigator.vibrate && (!ua || ua.hasBeenActive)) navigator.vibrate(p || 8); } catch (e) {} };
 
   // ---- toasts (stacked, typed) ----
   FX.toast = (msg, type, ms) => {
